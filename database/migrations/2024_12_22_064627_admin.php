@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->string('email')->unique(); // Unique email
             $table->string('first_name'); // First Name
             $table->string('last_name'); // Last Name
+            $table->string('password'); // Password
             $table->timestamps(); // Adds created_at and updated_at fields
         });
     }
