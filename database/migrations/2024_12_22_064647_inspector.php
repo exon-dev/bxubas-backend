@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('inspectors', function (Blueprint $table) {
-            $table->bigIncrements('id'); // Primary key
+            $table->bigIncrements('inspector_id'); // Primary key
             $table->string('email')->unique(); // Unique email
             $table->string('first_name'); // First Name
             $table->string('last_name'); // Last Name
@@ -21,7 +21,7 @@ return new class extends Migration {
 
             // Foreign key constraint
             $table->foreign('admin_id')
-                ->references('id')
+                ->references('admin_id')
                 ->on('admins')
                 ->onDelete('cascade'); // Cascading delete
         });

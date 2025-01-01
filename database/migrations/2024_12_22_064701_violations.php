@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('violations', function (Blueprint $table) {
-            $table->bigIncrements('id'); // Primary key
+            $table->bigIncrements('violation_id'); // Primary key
             $table->string('nature_of_violation'); // Nature of the violation
             $table->string('type_of_inspection'); // Type of inspection (e.g., routine, complaint)
             $table->string('violation_receipt_no')->unique(); // Receipt number for violation
@@ -25,7 +25,7 @@ return new class extends Migration {
 
             // Foreign key constraints
             $table->foreign('inspector_id')
-                ->references('id')
+                ->references('inspector_id')
                 ->on('inspectors')
                 ->onDelete('cascade');
 

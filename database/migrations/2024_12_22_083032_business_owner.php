@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('business_owners', function (Blueprint $table) {
-            $table->id(); // Primary key
+            $table->id("business_owner_id"); // Primary key
             $table->string('email')->unique(); // Unique email for the owner
             $table->string('first_name'); // First name
             $table->string('last_name'); // Last name

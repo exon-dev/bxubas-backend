@@ -15,13 +15,13 @@ return new class extends Migration {
             $table->string('business_id')->unique(); // Unique identifier for the business
             $table->string('business_name'); // Name of the business
             $table->string('image_url')->nullable(); // Optional URL for business image
-            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active'); // Status of the business
+            $table->string('status'); // Status of the business
             $table->unsignedBigInteger('owner_id'); // Foreign key to the business_owners table
             $table->timestamps(); // Adds created_at and updated_at columns
 
             // Foreign key constraint
-            $table->foreign('owner_id')
-                ->references('id')
+            $table->foreign('business_owner_id')
+                ->references('business_owner_id')
                 ->on('business_owners')
                 ->onDelete('cascade');
         });
