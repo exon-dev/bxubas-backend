@@ -9,6 +9,7 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post("/admin-login", "AdminController@login");
+Route::post("/create-admin", "AdminController@registerAdmin");
 Route::post('/inspector-login', "InspectorController@login");
 
 

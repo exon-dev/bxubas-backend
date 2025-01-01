@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('admins', function (Blueprint $table) {
-            $table->bigIncrements('admin_id'); // Primary Key
+            $table->char('admin_id', 36)->primary(); // Primary Key
             $table->string('email')->unique(); // Unique email
             $table->string('first_name'); // First Name
             $table->string('last_name'); // Last Name

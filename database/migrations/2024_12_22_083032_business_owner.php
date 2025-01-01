@@ -11,12 +11,15 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('business_owners', function (Blueprint $table) {
-            $table->id("business_owner_id"); // Primary key
+            $table->char('business_owner_id', 36)->primary(); // Primary key (UUID format)
             $table->string('email')->unique(); // Unique email for the owner
             $table->string('first_name'); // First name
             $table->string('last_name'); // Last name
             $table->string('phone_number'); // Phone number
             $table->timestamps(); // Adds created_at and updated_at columns
+
+            // Optional: Add indexes for faster queries on commonly searched columns
+            $table->index('email'); // Index for email
         });
     }
 
@@ -25,6 +28,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('business_owners');
+        Schema::dropIfExists('business_owners'); // Drops the table if it exists
     }
 };
