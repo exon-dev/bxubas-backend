@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::post("/admin-login", [AdminController::class, 'login']);
 Route::post("/create-admin", [AdminController::class, 'registerAdmin']);
-Route::post('/inspector-login', "InspectorController@login");
+Route::post('/inspector-login', [InspectorController::class, 'login']);
 
 
 Route::group(['middleware' => 'auth:sanctum'], function () {
@@ -25,7 +25,6 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     // routes for the inspector
     Route::group(['prefix' => 'inspector'], function () {
-
     });
 
 });

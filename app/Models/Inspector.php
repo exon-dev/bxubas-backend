@@ -4,9 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
 
 class Inspector extends Model
 {
+
+    use HasApiTokens;
+
     protected $primaryKey = 'inspector_id'; // Define custom primary key
     public $incrementing = false; // Prevent auto-increment since you're using UUID
 
