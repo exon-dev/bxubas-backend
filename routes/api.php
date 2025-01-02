@@ -20,6 +20,10 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     // routes for the admin
     Route::group(['prefix' => 'admin'], function () {
         Route::post('/create-inspector', [AdminController::class, 'createInspector']);
+
+        Route::get('/inspectors', [AdminController::class, 'inspectors']);
+
+        Route::delete('/delete-inspector/{inspector_id}', [AdminController::class, 'deleteInspector']);
     });
 
 

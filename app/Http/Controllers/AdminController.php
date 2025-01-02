@@ -94,10 +94,37 @@ class AdminController extends Controller
         ]);
     }
 
+    public function inspectors()
+    {
+        // Get all inspectors without passwords
+        $inspectors = Inspector::all()->makeHidden('password');
+
+        // Return success response
+        return response()->json([
+            'status' => 200,
+            'inspectors' => $inspectors
+        ]);
+    }
 
     public function deleteInspector(Request $request)
     {
-        // Implement deleteInspector logic
+        // Implement delete inspector logic
+        $inspector = Inspector::find($request->inspector_id);
+
+        if (!$inspector) {
+            return response()->json([
+                'status' => 404,
+                'message' => 'Inspector not found'
+            ]);
+        }
+
+        $inspector->delete();
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Inspector deleted successfully'
+        ]);
+
     }
 
     public function logout(Request $request)
