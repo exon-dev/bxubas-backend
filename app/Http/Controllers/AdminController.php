@@ -2,70 +2,82 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admins;
+use App\Models\Admin;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
-
     public function registerAdmin(Request $request)
     {
-        $request->validate([
+        // Validate the request data
+        $data = $request->validate([
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required|email',
             'password' => 'required|min:8',
         ]);
 
-        Admins::create([
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+        // Hash the password before saving
+        $data['password'] = Hash::make($data['password']);
+
+        // Create new admin, the UUID will be generated automatically in the model
+        $admin = Admin::create($data);
+
+        // Return success response
+        return response()->json([
+            'status' => 200,
+            'message' => 'Admin created successfully',
+            'admin' => $admin  // Optionally, return the created admin details
         ]);
-
-        return response()->json(
-            [
-                'status' => 200,
-                'message' => 'Admin created successfully'
-            ]
-        );
-
     }
 
     public function login(Request $request)
     {
+        // Validate the login credentials
         $request->validate([
             'email' => 'required|email',
             'password' => 'required'
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        // Retrieve the user by email
+        $user = Admin::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response(['message' => 'Admin account does not exist!'], 404);
+        }
+
+        // Check if the password is correct
+        if (!Hash::check($request->password, $user->password)) {
             return response([
                 'message' => 'Invalid credentials'
             ], 401);
         }
 
-        $user = Auth::user();
-        $token = $user->createToken('token')->plainTextToken;
+        // Authentication successful
+        $token = $user->createToken('auth_token', ['*'])->plainTextToken;
 
-        return response()->json(['message' => 'Login successful', 'token' => $token, 'user' => $user], 200);
+        // Return successful login response
+        return response()->json([
+            'message' => 'Login successful',
+            'token' => $token,
+            'user' => $user
+        ], 200);
     }
 
     public function createInspector(Request $request)
     {
-
+        // Implement createInspector logic
     }
 
     public function deleteInspector(Request $request)
     {
-
+        // Implement deleteInspector logic
     }
 
     public function logout(Request $request)
     {
-
+        // Implement logout logic
     }
 }
