@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckScope;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,9 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
-        
+        $middleware->alias([
+            'is_admin' => CheckScope::class . ':admin',  // Passing 'admin' scope to CheckScope
+            'is_inspector' => CheckScope::class . ':inspector', // Passing 'inspector' scope to CheckScope
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
+

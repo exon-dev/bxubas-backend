@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Hash;
 
 class InspectorController extends Controller
 {
-    public function login(Request $request){
+    public function login(Request $request)
+    {
         $data = $request->validate([
             'email' => 'required|email',
             'password' => 'required'
@@ -26,7 +27,7 @@ class InspectorController extends Controller
             ], 401);
         }
 
-        $token = $inspector->createToken('auth_token', ['*'])->plainTextToken;
+        $token = $inspector->createToken('auth_token', ['inspector'])->plainTextToken;
 
         return response([
             'inspector' => $inspector,

@@ -57,7 +57,7 @@ class AdminController extends Controller
         }
 
         // Authentication successful
-        $token = $user->createToken('auth_token', ['*'])->plainTextToken;
+        $token = $user->createToken('auth_token', ['admin'])->plainTextToken;
 
         // Return successful login response
         return response()->json([
