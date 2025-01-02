@@ -19,7 +19,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     // routes for the admin
     Route::group(['prefix' => 'admin'], function () {
-        Route::post('/create-inspector', "AdminController@createInspector");
+        Route::post('/create-inspector', [AdminController::class, 'createInspector']);
     });
 
 

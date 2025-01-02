@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Inspector extends Model
 {
@@ -10,6 +11,13 @@ class Inspector extends Model
     public $incrementing = false; // Prevent auto-increment since you're using UUID
 
     protected $fillable = ['admin_id', 'email', 'first_name', 'last_name', 'password'];
+
+    protected static function booted()
+    {
+        static::creating(function ($inspector) {
+            $inspector->inspector_id = (string) Str::uuid(); // Generate UUID
+        });
+    }
 
     public function admin()
     {

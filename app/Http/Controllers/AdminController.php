@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\Inspector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -68,8 +69,31 @@ class AdminController extends Controller
 
     public function createInspector(Request $request)
     {
-        // Implement createInspector logic
+        // Validate input data
+        $data = $request->validate([
+            'first_name' => 'required',
+            'last_name' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:8',
+        ]);
+
+        // Hash password
+        $data['password'] = Hash::make($data['password']);
+
+        // Add admin_id to the data array from the logged-in admin
+        $data['admin_id'] = auth()->user()->admin_id;
+
+        // Create inspector
+        $inspector = Inspector::create($data);
+
+        // Return success response
+        return response()->json([
+            'status' => 200,
+            'message' => 'Inspector created successfully',
+            'inspector' => $inspector
+        ]);
     }
+
 
     public function deleteInspector(Request $request)
     {
