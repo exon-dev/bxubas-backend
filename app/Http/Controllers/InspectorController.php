@@ -42,8 +42,8 @@ class InspectorController extends Controller
 
     public function addInspection(Request $request)
     {
-        // Validate the request data
-        $data = $request->validate([
+        // If there are no violations, we don't need to validate due_date
+        $validationRules = [
             // Business Owner
             'owner_first_name' => 'required',
             'owner_last_name' => 'required',
@@ -68,8 +68,15 @@ class InspectorController extends Controller
             // Violations (conditionally required if with_violations is true)
             'nature_of_violation' => 'required_if:with_violations,true',
             'violation_receipt' => 'required_if:with_violations,true',
-            'due_date' => 'required_if:with_violations,true|date',
-        ]);
+        ];
+
+        // Conditionally add due_date validation if there are violations
+        if ($request->input('with_violations') == true) {
+            $validationRules['due_date'] = 'required|date';
+        }
+
+        // Validate the request data
+        $data = $request->validate($validationRules);
 
         // Add inspector_id from the authenticated user
         $data['inspector_id'] = auth()->user()->inspector_id;
@@ -117,7 +124,7 @@ class InspectorController extends Controller
             Violation::create([
                 'nature_of_violation' => $data['nature_of_violation'],
                 'violation_receipt_no' => $data['violation_receipt'], // Assuming you have this field
-                'due_date' => $data['due_date'],
+                'due_date' => $data['due_date'], // Only passed when applicable
                 'inspection_id' => $inspection->inspection_id, // Add related inspection ID
                 'status' => 'pending', // Default status, adjust as needed
                 'type_of_inspection' => $data['type_of_inspection'], // Ensure this is included for the violation
@@ -135,6 +142,8 @@ class InspectorController extends Controller
             'address' => $address,
         ], 201);
     }
+
+
 
 
     public function getInspections()
