@@ -27,7 +27,9 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     // routes for the inspector
     Route::group(['prefix' => 'inspector', 'middleware' => 'is_inspector'], function () {
-        // Inspector specific routes here
+        Route::post('/add-inspection', [InspectorController::class, 'addInspection']);
+        Route::get('/inspections', [InspectorController::class, 'getInspections']);
+        Route::delete('/delete-inspection/{inspection_id}', [InspectorController::class, 'deleteInspection']);
     });
 });
 
