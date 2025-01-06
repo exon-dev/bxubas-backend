@@ -7,6 +7,8 @@ use App\Models\Inspector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SendCredentials;
 
 class AdminController extends Controller
 {
@@ -77,17 +79,28 @@ class AdminController extends Controller
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required|email',
-            'password' => 'required|min:8',
         ]);
 
-        // Hash password
-        $data['password'] = Hash::make($data['password']);
+        // Generate a random 8-character password with symbols
+        $password = Str::random(8); // Generates a random 8-character password
+
+        // Hash the generated password
+        $data['password'] = Hash::make($password);
 
         // Add admin_id to the data array from the logged-in admin
         $data['admin_id'] = auth()->user()->admin_id;
 
         // Create inspector
         $inspector = Inspector::create($data);
+
+        $toEmail = $inspector->email;
+        $toName = $inspector->first_name . ' ' . $inspector->last_name;
+
+        // Prepare the message
+        $message = 'Your Inspector account has been created successfully. Your email is ' . $inspector->email . ' and your password is ' . $password . '. Please change your password after logging in.';
+
+        // Send email
+        Mail::to($toEmail)->send(new SendCredentials($message, $toName));
 
         // Return success response
         return response()->json([
