@@ -59,6 +59,9 @@ class AdminController extends Controller
         // Authentication successful
         $token = $user->createToken('auth_token', ['admin'])->plainTextToken;
 
+        // Hide the password before returning the user
+        $user->makeHidden('password');
+
         // Return successful login response
         return response()->json([
             'message' => 'Login successful',
