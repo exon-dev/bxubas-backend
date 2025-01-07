@@ -1,12 +1,10 @@
 <?php
 
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ViolationController;
 use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Middleware\CheckScope;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
@@ -42,5 +40,10 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::group(['prefix' => 'dashboard'], function () {
         Route::get('/card-info', [DashboardController::class, 'getCardInfo']);
         Route::post('/resolve-violation/{violation_id}', [InspectorController::class, 'resolveViolation']);
+    })->middleware('checkScope:admin,inspector');
+
+    // Violation Routes (accessible by both inspectors and admins)
+    Route::group(['prefix' => 'violation'], function () {
+        Route::get('/violators', [ViolationController::class, 'getViolators']);
     })->middleware('checkScope:admin,inspector');
 });

@@ -16,7 +16,13 @@ class InspectionController extends Controller
         $page = $request->input('page', 1);
 
         // Paginate the inspections, 10 per page
-        $inspections = Inspection::with(['business', 'business.owner'])->paginate(20, ['*'], 'page', $page);
+        $inspections = Inspection::with(['business', 'business.owner', 'inspector'])->paginate(20, ['*'], 'page', $page);
+
+        // Modify the inspections to include the inspector's full name
+        $inspections->getCollection()->transform(function ($inspection) {
+            $inspection->inspector_full_name = $inspection->inspector->first_name . ' ' . $inspection->inspector->last_name;
+            return $inspection;
+        });
 
         return response()->json([
             'status' => 200,
