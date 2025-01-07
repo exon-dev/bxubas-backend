@@ -12,11 +12,34 @@ class InspectionController extends Controller
     //
     public function getInspections(Request $request)
     {
+        // Start with a base query
+        $query = Inspection::with(['business', 'business.owner', 'inspector']);
+
+        // Apply filters based on request parameters
+        if ($request->has('inspection_date')) {
+            $query->whereDate('inspection_date', $request->inspection_date);
+        }
+
+        if ($request->has('with_violations')) {
+            $withViolations = $request->with_violations === 'yes';
+            $query->where('with_violations', $withViolations);
+        }
+
+        if ($request->has('inspector_id')) {
+            $query->where('inspector_id', $request->inspector_id);
+        }
+
+        if ($request->has('business_name')) {
+            $query->whereHas('business', function ($q) use ($request) {
+                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
+            });
+        }
+
         // Get the current page from the request, default is 1
         $page = $request->input('page', 1);
 
-        // Paginate the inspections, 10 per page
-        $inspections = Inspection::with(['business', 'business.owner', 'inspector'])->paginate(20, ['*'], 'page', $page);
+        // Paginate the filtered results
+        $inspections = $query->paginate(15, ['*'], 'page', $page);
 
         // Modify the inspections to include the inspector's full name
         $inspections->getCollection()->transform(function ($inspection) {
