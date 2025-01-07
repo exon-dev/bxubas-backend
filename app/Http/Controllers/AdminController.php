@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SendCredentials;
+use App\Models\Inspection;
 
 class AdminController extends Controller
 {
@@ -112,8 +113,20 @@ class AdminController extends Controller
 
     public function inspectors()
     {
-        // Get all inspectors without passwords
-        $inspectors = Inspector::all()->makeHidden('password');
+        // Fetch all inspectors with the count of inspections
+        $inspectors = Inspector::withCount('inspections')->get()->makeHidden('password');
+
+        return response()->json([
+            'status' => 200,
+            'inspectors' => $inspectors,
+        ]);
+    }
+
+
+    public function inspectorsWithInspectionsCount()
+    {
+        // Get all inspectors with the count of inspections they conducted
+        $inspectors = Inspector::withCount('inspections')->get()->makeHidden('password');
 
         // Return success response
         return response()->json([

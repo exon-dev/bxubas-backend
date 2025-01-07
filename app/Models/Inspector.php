@@ -14,6 +14,8 @@ class Inspector extends Model
     protected $primaryKey = 'inspector_id'; // Define custom primary key
     public $incrementing = false; // Prevent auto-increment since you're using UUID
 
+    protected $hidden = ['password'];
+
     protected $fillable = ['admin_id', 'email', 'first_name', 'last_name', 'password'];
 
     protected static function booted()
