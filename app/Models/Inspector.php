@@ -1,15 +1,15 @@
 <?php
-
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable; // Include this import
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
-class Inspector extends Model
+class Inspector extends Authenticatable // Extend Authenticatable
 {
-
-    use HasApiTokens;
+    use HasApiTokens, CanResetPassword;
 
     protected $primaryKey = 'inspector_id'; // Define custom primary key
     public $incrementing = false; // Prevent auto-increment since you're using UUID

@@ -5,12 +5,20 @@ use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
 Route::post("/admin-login", [AdminController::class, 'login']);
 Route::post("/create-admin", [AdminController::class, 'registerAdmin']);
 Route::post('/inspector-login', [InspectorController::class, 'login']);
+
+
+// password reset
+Route::group(['prefix'=>  'auth'], function(){
+    Route::post('/change-password-request', [AuthController::class, 'changePasswordRequest']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+});
 
 // Routes protected by Sanctum authentication
 Route::group(['middleware' => 'auth:sanctum'], function () {

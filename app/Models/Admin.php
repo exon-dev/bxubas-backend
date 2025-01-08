@@ -1,15 +1,15 @@
 <?php
-
 namespace App\Models;
 
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable; // Ensure this is included
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
-class Admin extends Model
+class Admin extends Authenticatable // Extend Authenticatable
 {
-    use HasFactory, HasApiTokens;
+    use HasFactory, HasApiTokens, CanResetPassword;
 
     // Specify the primary key
     protected $primaryKey = 'admin_id';
