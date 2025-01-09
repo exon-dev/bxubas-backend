@@ -15,7 +15,7 @@ return new class extends Migration {
 
             // Primary and other columns
             $table->char('business_id', 36)->primary();
-            $table->string('business_permit')->unique(); // Unique permit identifier
+            $table->string('business_permit')->nullable()->unique(); // Unique permit identifier
             $table->string('business_name'); // Name of the business
             $table->string('image_url')->nullable(); // Optional image URL
             $table->string('status'); // Status of the business (active, inactive, etc.)

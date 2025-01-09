@@ -7,9 +7,9 @@ use App\Models\Inspector;
 use App\Models\Admin;
 use App\Mail\SendPasswordReset;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Mail\Mailable\SendCredentials;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
@@ -32,16 +32,29 @@ class AuthController extends Controller
         $recipientName = trim("{$user->first_name} {$user->last_name}") ?: $user->email;
 
         // Generate reset token
-        $token = Password::broker()->createToken($user);
+        $plainToken = bin2hex(random_bytes(32)); // Generate a secure random token
+        $hashedToken = Hash::make($plainToken); // Hash the token for storage
 
-        // Prepare reset link
-        $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html', $token);
+        // Encrypt email
+        $encryptedEmail = encrypt($request->email); // Use Laravel's built-in encryption
+
+        // Save token to the database
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'token' => $hashedToken,
+                'created_at' => now(),
+            ]
+        );
+
+        // Create reset link with plain token and encrypted email
+        $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
 
         // Prepare the email message
-        $emailMessage = 'You have requested to reset your password. Please click the link below to reset your password:'; // Updated variable name
+        $emailMessage = 'You have requested to reset your password. Please click the link below to reset your password:';
 
         // Send email
-        Mail::to($request->email)->send(new SendPasswordReset($emailMessage, $recipientName, $resetLink)); // Updated variable name
+        Mail::to($request->email)->send(new SendPasswordReset($emailMessage, $recipientName, $resetLink));
 
         return response()->json(['message' => 'Password reset link sent.']);
     }
@@ -49,31 +62,46 @@ class AuthController extends Controller
     public function changePassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
             'token' => 'required',
-            'password' => 'required|min:8|confirmed',
+            'email' => 'required', // No need to validate as email since it's encrypted
+            'password' => 'required|min:8',
         ]);
 
-        // Check user type
-        $admin = Admin::where('email', $request->email)->first();
-        $inspector = Inspector::where('email', $request->email)->first();
-
-        if (!$admin && !$inspector) {
-            return response()->json(['message' => 'Email not found.'], 404);
+        try {
+            $decryptedEmail = decrypt($request->email); // Decrypt the email
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Invalid email encryption.'], 400);
         }
 
-        $user = $admin ?? $inspector;
+        // Retrieve reset record
+        $resetRecord = DB::table('password_reset_tokens')
+            ->where('email', $decryptedEmail)
+            ->first();
 
-        // Validate token (you'll need to implement token storage and validation)
-        $isValidToken = Password::broker()->tokenExists($user, $request->token);
-        if (!$isValidToken) {
-            return response()->json(['message' => 'Invalid or expired token.'], 400);
+        if (!$resetRecord || !Hash::check($request->token, $resetRecord->token)) {
+            return response()->json(['message' => 'Invalid token or email.'], 400);
+        }
+
+        // Check token expiration (e.g., valid for 60 minutes)
+        if (now()->diffInMinutes($resetRecord->created_at) > 60) {
+            return response()->json(['message' => 'Token has expired.'], 400);
+        }
+
+        // Find user by email
+        $user = Admin::where('email', $decryptedEmail)->first() ??
+            Inspector::where('email', $decryptedEmail)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
         }
 
         // Update password
         $user->password = Hash::make($request->password);
         $user->save();
 
-        return response()->json(['message' => 'Password changed successfully.']);
+        // Delete the reset token
+        DB::table('password_reset_tokens')->where('email', $decryptedEmail)->delete();
+
+        return response()->json(['message' => 'Password reset successfully!']);
     }
 }
