@@ -146,17 +146,47 @@ class InspectorController extends Controller
 
 
 
-    public function getInspections()
+    public function getInspections(Request $request)
     {
-        $inspections = Inspection::with(['business', 'business.owner'])->get();
+        // Start with a base query
+        $query = Inspection::with(['business', 'business.owner', 'inspector']);
 
-        return response(['inspections' => $inspections]);
-    }
+        // Apply filters based on request parameters
+        if ($request->has('inspection_date')) {
+            $query->whereDate('inspection_date', $request->inspection_date);
+        }
 
-    public function getInspection($id)
-    {
-        $inspection = Inspection::find($id);
-        return response(['inspection' => $inspection]);
+        if ($request->has('with_violations')) {
+            $withViolations = $request->with_violations === 'yes';
+            $query->where('with_violations', $withViolations);
+        }
+
+        if ($request->has('inspector_id')) {
+            $query->where('inspector_id', $request->inspector_id);
+        }
+
+        if ($request->has('business_name')) {
+            $query->whereHas('business', function ($q) use ($request) {
+                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
+            });
+        }
+
+        // Get the current page from the request, default is 1
+        $page = $request->input('page', 1);
+
+        // Paginate the filtered results
+        $inspections = $query->paginate(15, ['*'], 'page', $page);
+
+        // Modify the inspections to include the inspector's full name
+        $inspections->getCollection()->transform(function ($inspection) {
+            $inspection->inspector_full_name = $inspection->inspector->first_name . ' ' . $inspection->inspector->last_name;
+            return $inspection;
+        });
+
+        return response()->json([
+            'status' => 200,
+            'inspections' => $inspections
+        ]);
     }
 
     public function deleteInspection($id)

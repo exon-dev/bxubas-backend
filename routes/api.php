@@ -35,6 +35,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::group(['prefix' => 'inspector', 'middleware' => 'is_inspector'], function () {
         Route::post('/add-inspection', [InspectorController::class, 'addInspection']);
         Route::delete('/delete-inspection/{inspection_id}', [InspectorController::class, 'deleteInspection']);
+        Route::get('/inspections', [InspectorController::class, 'getInspections']);
     });
 
     // Inspection Routes (accessible by both inspectors and admins)
