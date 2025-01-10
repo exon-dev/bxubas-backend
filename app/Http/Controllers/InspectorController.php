@@ -52,7 +52,7 @@ class InspectorController extends Controller
 
             // Business
             'business_name' => 'required',
-            'business_permit' => 'required',
+            'business_permit' => 'nullable',
             'business_status' => 'required',
             'image_url' => 'nullable',
 
