@@ -13,6 +13,16 @@ use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
+
+    public function logout(Request $request)
+    {
+        // Revoke the user's current token
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ]);
+    }
     public function changePasswordRequest(Request $request)
     {
         $request->validate(['email' => 'required|email']);
@@ -58,7 +68,6 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password reset link sent.']);
     }
-
     public function changePassword(Request $request)
     {
         $request->validate([

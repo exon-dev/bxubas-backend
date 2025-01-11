@@ -15,7 +15,7 @@ Route::post('/inspector-login', [InspectorController::class, 'login']);
 
 
 // password reset
-Route::group(['prefix'=>  'auth'], function(){
+Route::group(['prefix' => 'auth'], function () {
     Route::post('/change-password-request', [AuthController::class, 'changePasswordRequest']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 });
@@ -29,6 +29,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::get('/inspectors', [AdminController::class, 'inspectors']);
         Route::delete('/delete-inspector/{inspector_id}', [AdminController::class, 'deleteInspector']);
         Route::get('/inspections', [AdminController::class, 'getInspections']);
+        Route::post('/admin-logout', [AuthController::class, 'logout']);
     });
 
     // Inspector Routes
@@ -36,6 +37,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::post('/add-inspection', [InspectorController::class, 'addInspection']);
         Route::delete('/delete-inspection/{inspection_id}', [InspectorController::class, 'deleteInspection']);
         Route::get('/inspections', [InspectorController::class, 'getInspections']);
+        Route::post('/inspector-logout', [AuthController::class, 'logout']);
     });
 
     // Inspection Routes (accessible by both inspectors and admins)
@@ -55,4 +57,5 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::group(['prefix' => 'violation'], function () {
         Route::get('/violators', [ViolationController::class, 'getViolators']);
     })->middleware('checkScope:admin,inspector');
+
 });

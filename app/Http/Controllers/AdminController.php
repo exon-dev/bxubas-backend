@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SendCredentials;
 use App\Models\Inspection;
+use Illuminate\Support\Facades\Auth;
 
 class AdminController extends Controller
 {
@@ -158,6 +159,12 @@ class AdminController extends Controller
 
     public function logout(Request $request)
     {
-        // Implement logout logic
+        // Revoke the user's current token
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ]);
     }
+
 }

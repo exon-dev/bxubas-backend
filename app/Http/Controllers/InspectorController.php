@@ -144,8 +144,6 @@ class InspectorController extends Controller
     }
 
 
-
-
     public function getInspections(Request $request)
     {
         // Start with a base query
@@ -153,7 +151,7 @@ class InspectorController extends Controller
 
         // Apply filters based on request parameters
         if ($request->has('inspection_date')) {
-            $query->whereDate('inspection_date', $request->inspection_date);
+            $query->whereDate('inspection_date', $request->inspection_date); // Filter by the specific date
         }
 
         if ($request->has('with_violations')) {
@@ -169,6 +167,15 @@ class InspectorController extends Controller
             $query->whereHas('business', function ($q) use ($request) {
                 $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
             });
+        }
+
+        // Check for sort_order parameter and apply sorting based on created_at
+        if ($request->has('sort_order')) {
+            if ($request->sort_order === 'latest') {
+                $query->orderBy('created_at', 'desc'); // Sort by creation date descending
+            } elseif ($request->sort_order === 'oldest') {
+                $query->orderBy('created_at', 'asc'); // Sort by creation date ascending
+            }
         }
 
         // Get the current page from the request, default is 1
