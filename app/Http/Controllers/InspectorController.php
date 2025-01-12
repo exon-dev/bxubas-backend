@@ -166,6 +166,15 @@ class InspectorController extends Controller
             $query->whereDate('inspection_date', $request->inspection_date);
         }
 
+        // Check for sort_order parameter and apply sorting based on created_at
+        if ($request->has('sort_order')) {
+            if ($request->sort_order === 'latest') {
+                $query->orderBy('created_at', 'desc'); // Sort by creation date descending
+            } elseif ($request->sort_order === 'oldest') {
+                $query->orderBy('created_at', 'asc'); // Sort by creation date ascending
+            }
+        }
+
         // Execute the query and get the inspections
         $inspections = $query->paginate(15);
 

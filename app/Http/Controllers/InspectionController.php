@@ -34,6 +34,14 @@ class InspectionController extends Controller
                 $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
             });
         }
+        // Check for sort_order parameter and apply sorting based on created_at
+        if ($request->has('sort_order')) {
+            if ($request->sort_order === 'latest') {
+                $query->orderBy('created_at', 'desc'); // Sort by creation date descending
+            } elseif ($request->sort_order === 'oldest') {
+                $query->orderBy('created_at', 'asc'); // Sort by creation date ascending
+            }
+        }
 
         // Get the current page from the request, default is 1
         $page = $request->input('page', 1);
