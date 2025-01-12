@@ -23,4 +23,5 @@ class Inspection extends Model
     {
         return $this->hasMany(Violation::class, 'inspection_id', 'inspection_id');
     }
+
 }

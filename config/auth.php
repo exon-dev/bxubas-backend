@@ -14,7 +14,7 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        'guard' => env('AUTH_GUARD', 'web'), // Default guard for general users
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
@@ -39,6 +39,18 @@ return [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+        ],
+
+        // Admin guard
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admins', // Using the 'admins' provider for admin users
+        ],
+
+        // Inspector guard
+        'inspector' => [
+            'driver' => 'session',
+            'provider' => 'inspectors', // Using the 'inspectors' provider for inspector users
         ],
     ],
 
@@ -67,15 +79,15 @@ return [
 
         'admins' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Admins::class, // Specify your Admins model here
+            'model' => App\Models\Admin::class, // Specify your Admins model here
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        // Inspector provider
+        'inspectors' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Inspector::class, // Specify your Inspectors model here
+        ],
     ],
-
 
     /*
     |--------------------------------------------------------------------------
@@ -99,6 +111,22 @@ return [
     'passwords' => [
         'users' => [
             'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        // Admin password reset configuration
+        'admins' => [
+            'provider' => 'admins', // Password reset for admins
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        // Inspector password reset configuration
+        'inspectors' => [
+            'provider' => 'inspectors', // Password reset for inspectors
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,
