@@ -12,7 +12,12 @@ class InspectionController extends Controller
     public function getInspections(Request $request)
     {
         // Start with a base query
-        $query = Inspection::with(['business', 'business.owner', 'inspector', 'business.violations']);
+        $query = Inspection::with([
+            'business',
+            'business.owner',
+            'inspector',
+            'business.violations.violationDetails' // Eager load violation details
+        ]);
 
         // Apply filters based on request parameters
         if ($request->has('inspection_date')) {
@@ -20,8 +25,15 @@ class InspectionController extends Controller
         }
 
         if ($request->has('with_violations')) {
+            // Filter inspections with violations
             $withViolations = $request->with_violations === 'yes';
-            $query->where('with_violations', $withViolations);
+            $query->whereHas('business.violations', function ($q) use ($withViolations) {
+                if ($withViolations) {
+                    $q->whereNotNull('violation_id'); // Ensure violations exist
+                } else {
+                    $q->whereNull('violation_id'); // No violations
+                }
+            });
         }
 
         if ($request->has('inspector_id')) {
@@ -56,7 +68,7 @@ class InspectionController extends Controller
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
                 'type_of_inspection' => $inspection->type_of_inspection,
-                'with_violations' => $inspection->with_violations,
+                'with_violations' => $inspection->business->violations->isNotEmpty(), // Check if there are violations
                 'business_id' => $inspection->business_id,
                 'inspector_id' => $inspection->inspector_id,
                 'created_at' => $inspection->created_at,
@@ -82,9 +94,10 @@ class InspectionController extends Controller
                     ]
                 ],
                 'violations' => $inspection->business->violations->map(function ($violation) {
+                    // Access the violation details and map them
                     return [
                         'violation_id' => $violation->violation_id,
-                        'nature_of_violation' => $violation->nature_of_violation,
+                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'), // Collect all violation details
                         'violation_receipt_no' => $violation->violation_receipt_no,
                         'violation_date' => $violation->violation_date,
                         'due_date' => $violation->due_date,
@@ -94,11 +107,17 @@ class InspectionController extends Controller
             ];
         });
 
+        \Log::info('Inspections retrieved', $inspections->toArray());
+
+        // Return the transformed data
         return response()->json([
             'status' => 200,
             'inspections' => $inspections
         ]);
     }
+
+
+
 
     public function getInspectionById($inspection_id)
     {

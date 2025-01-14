@@ -10,6 +10,7 @@ use App\Models\Violation;
 use App\Models\BusinessOwner;
 use App\Models\Business;
 use App\Models\Address;
+use App\Models\ViolationDetail;
 use Illuminate\Support\Facades\Log;
 
 class InspectorController extends Controller
@@ -55,7 +56,7 @@ class InspectorController extends Controller
             'business_name' => 'required',
             'business_permit' => 'nullable',
             'business_status' => 'required',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Adjust for file validation
+            'image' => 'nullable', // Adjust for file validation
 
             // Address
             'street' => 'required',
@@ -67,8 +68,11 @@ class InspectorController extends Controller
             'with_violations' => 'required|boolean',
 
             // Violations
-            'nature_of_violation' => 'required_if:with_violations,true',
-            'violation_receipt' => 'required_if:with_violations,true',
+            // Only required if "with_violations" is true
+            'nature_of_violations' => 'required_if:with_violations,true|array', // Modify to expect an array when with_violations is true
+            'nature_of_violations.*' => 'required|string', // Ensure each violation nature is a string
+
+            'violation_receipt' => 'required_if:with_violations,true', // Only required if with_violations is true
         ];
 
         if ($request->input('with_violations')) {
@@ -133,8 +137,8 @@ class InspectorController extends Controller
 
         // Step 7: Create violations (if applicable)
         if ($data['with_violations']) {
-            Violation::create([
-                'nature_of_violation' => $data['nature_of_violation'],
+            // Create the violation record
+            $violation = Violation::create([
                 'violation_receipt_no' => $data['violation_receipt'],
                 'due_date' => $data['due_date'],
                 'inspection_id' => $inspection->inspection_id,
@@ -143,6 +147,14 @@ class InspectorController extends Controller
                 'violation_date' => now(),
                 'business_id' => $business->business_id,
             ]);
+
+            // Step 7.1: Add violation details (nature_of_violation)
+            foreach ($data['nature_of_violations'] as $natureOfViolation) {
+                ViolationDetail::create([
+                    'violation_id' => $violation->violation_id,
+                    'nature_of_violation' => $natureOfViolation,
+                ]);
+            }
         }
 
         // Step 8: Return response

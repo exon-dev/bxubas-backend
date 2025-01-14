@@ -14,7 +14,6 @@ return new class extends Migration {
             $table->engine = 'InnoDB'; // Ensure InnoDB engine is used
 
             $table->char('violation_id', 36)->primary();
-            $table->string('nature_of_violation');
             $table->string('type_of_inspection');
             $table->string('violation_receipt_no')->unique();
             $table->date('violation_date');

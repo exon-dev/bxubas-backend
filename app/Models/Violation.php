@@ -13,12 +13,12 @@ class Violation extends Model
 
     protected $fillable = [
         'violation_id',
-        'nature_of_violation',
         'type_of_inspection',
         'violation_receipt_no',
         'violation_date',
         'due_date',
         'status',
+        'violation_status',
         'business_id',
         'inspection_id',
     ];
@@ -53,6 +53,14 @@ class Violation extends Model
         return $this->belongsTo(Inspection::class, 'inspection_id');
     }
 
+    /**
+     * Define the relationship with the ViolationDetail model.
+     * A violation can have multiple nature_of_violation entries.
+     */
+    public function violationDetails()
+    {
+        return $this->hasMany(ViolationDetail::class, 'violation_id', 'violation_id');
+    }
 
     /**
      * Define the relationship with the Notification model.
