@@ -11,6 +11,8 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('violations', function (Blueprint $table) {
+            $table->engine = 'InnoDB'; // Ensure InnoDB engine is used
+
             $table->char('violation_id', 36)->primary();
             $table->string('nature_of_violation');
             $table->string('type_of_inspection');
@@ -19,15 +21,23 @@ return new class extends Migration {
             $table->date('due_date')->nullable();
             $table->enum('status', ['pending', 'resolved'])->default('pending');
             $table->string('violation_status')->nullable();
-            $table->char('business_id', 36); // Foreign key column
+            $table->char('business_id', 36); // Foreign key column for business_id
+            $table->unsignedBigInteger('inspection_id')->nullable(); // Corrected to match the inspection_id type
             $table->timestamps();
 
-            // Ensure the foreign key reference is properly formed
-            $table->index('business_id'); // Add index for business_id
+            // Foreign key for business_id
+            $table->index('business_id');
             $table->foreign('business_id')
                 ->references('business_id')
                 ->on('businesses')
                 ->onDelete('cascade');
+
+            // Foreign key for inspection_id
+            $table->index('inspection_id');
+            $table->foreign('inspection_id')
+                ->references('inspection_id')
+                ->on('inspections')
+                ->onDelete('set null'); // If the related inspection is deleted, set the inspection_id to null
         });
     }
 
@@ -36,7 +46,12 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        // Drop the violations table if it exists
+        // Drop the foreign key constraints and the violations table
+        Schema::table('violations', function (Blueprint $table) {
+            $table->dropForeign(['business_id']);
+            $table->dropForeign(['inspection_id']);
+        });
+
         Schema::dropIfExists('violations');
     }
 };

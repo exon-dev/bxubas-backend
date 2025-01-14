@@ -13,7 +13,7 @@ Route::post("/admin-login", [AdminController::class, 'login']);
 Route::post("/create-admin", [AdminController::class, 'registerAdmin']);
 Route::post('/inspector-login', [InspectorController::class, 'login']);
 
-// password reset
+// password reset (public route)
 Route::group(['prefix' => 'auth'], function () {
     Route::post('/change-password-request', [AuthController::class, 'changePasswordRequest']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
@@ -36,12 +36,14 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::post('/add-inspection', [InspectorController::class, 'addInspection']);
         Route::delete('/delete-inspection/{inspection_id}', [InspectorController::class, 'deleteInspection']);
         Route::get('/inspections', [InspectorController::class, 'getInspections']);
+
         Route::post('/inspector-logout', [AuthController::class, 'logout']);
     });
 
     // Inspection Routes (accessible by both inspectors and admins)
     Route::group(['prefix' => 'inspection'], function () {
         Route::get('/inspections', [InspectionController::class, 'getInspections']);
+        Route::get('/inspections/{id}', [InspectionController::class, 'getInspectionById']);
         Route::delete('/delete-violation/{violation_id}', [InspectorController::class, 'deleteViolation']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
 

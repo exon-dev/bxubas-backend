@@ -23,4 +23,24 @@ class DashboardController extends Controller
             'overdue_violations' => $overdue_violations
         ]);
     }
+
+    // todo modify this with structure of inspected business
+
+    public function getUpcomingDueDates()
+    {
+        $upcoming_due_dates = Violation::where('due_date', '>', now()->addDays(3))->get();
+
+        return response()->json([
+            'upcoming_due_dates' => $upcoming_due_dates
+        ]);
+    }
+
+    public function getOverdueViolations()
+    {
+        $overdue_violations = Violation::where('due_date', '<', now())->get();
+
+        return response()->json([
+            'overdue_violations' => $overdue_violations
+        ]);
+    }
 }

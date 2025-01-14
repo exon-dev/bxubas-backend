@@ -43,7 +43,7 @@ class InspectorController extends Controller
 
     public function addInspection(Request $request)
     {
-        // If there are no violations, we don't need to validate due_date
+        // Validation rules
         $validationRules = [
             // Business Owner
             'owner_first_name' => 'required',
@@ -55,7 +55,7 @@ class InspectorController extends Controller
             'business_name' => 'required',
             'business_permit' => 'nullable',
             'business_status' => 'required',
-            'image_url' => 'nullable',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Adjust for file validation
 
             // Address
             'street' => 'required',
@@ -66,23 +66,34 @@ class InspectorController extends Controller
             'type_of_inspection' => 'required',
             'with_violations' => 'required|boolean',
 
-            // Violations (conditionally required if with_violations is true)
+            // Violations
             'nature_of_violation' => 'required_if:with_violations,true',
             'violation_receipt' => 'required_if:with_violations,true',
         ];
 
-        // Conditionally add due_date validation if there are violations
-        if ($request->input('with_violations') == true) {
+        if ($request->input('with_violations')) {
             $validationRules['due_date'] = 'required|date';
         }
 
-        // Validate the request data
         $data = $request->validate($validationRules);
 
-        // Add inspector_id from the authenticated user
+        // Step 1: Handle file upload (if applicable)
+        $fileController = new FileController();
+        $imagePath = null;
+
+        if ($request->hasFile('image')) {
+            $imageResponse = $fileController->storeImage($request);
+            if ($imageResponse->getStatusCode() === 200) {
+                $imagePath = $imageResponse->getData()->path; // Extract path from response
+            } else {
+                return response()->json(['error' => 'Image upload failed'], 400);
+            }
+        }
+
+        // Step 2: Add inspector_id
         $data['inspector_id'] = auth()->user()->inspector_id;
 
-        // Step 1: Retrieve or create the business owner
+        // Step 3: Retrieve or create the business owner
         $businessOwner = BusinessOwner::firstOrCreate(
             ['email' => $data['owner_email']],
             [
@@ -92,50 +103,50 @@ class InspectorController extends Controller
             ]
         );
 
-        // Step 2: Retrieve or create the business
+        // Step 4: Retrieve or create the business
         $business = Business::firstOrCreate(
             ['business_permit' => $data['business_permit']],
             [
                 'business_name' => $data['business_name'],
                 'status' => $data['business_status'],
-                'image_url' => $data['image_url'],
+                'image_url' => $imagePath, // Save uploaded image URL
                 'owner_id' => $businessOwner->business_owner_id,
             ]
         );
 
-        // Step 3: Create the address and associate it with the business
+        // Step 5: Create the address
         $address = Address::create([
             'street' => $data['street'],
             'city' => $data['city'],
             'zip' => $data['zip'],
-            'business_id' => $business->business_id, // Set business_id in the address
+            'business_id' => $business->business_id,
         ]);
 
-        // Step 4: Create the inspection and include inspection_date
+        // Step 6: Create the inspection
         $inspection = Inspection::create([
             'inspector_id' => $data['inspector_id'],
             'business_id' => $business->business_id,
-            'type_of_inspection' => $data['type_of_inspection'], // Ensure this is passed
+            'type_of_inspection' => $data['type_of_inspection'],
             'with_violations' => $data['with_violations'],
-            'inspection_date' => now(), // Set current date and time as the inspection date
+            'inspection_date' => now(),
         ]);
 
-        // Step 5: Create violations (if applicable)
+        // Step 7: Create violations (if applicable)
         if ($data['with_violations']) {
             Violation::create([
                 'nature_of_violation' => $data['nature_of_violation'],
-                'violation_receipt_no' => $data['violation_receipt'], // Assuming you have this field
-                'due_date' => $data['due_date'], // Only passed when applicable
-                'inspection_id' => $inspection->inspection_id, // Add related inspection ID
-                'status' => 'pending', // Default status, adjust as needed
-                'type_of_inspection' => $data['type_of_inspection'], // Ensure this is included for the violation
-                'violation_date' => now(), // Set violation_date to the current date
-                'business_id' => $business->business_id, // Ensure the business_id UUID is passed here
+                'violation_receipt_no' => $data['violation_receipt'],
+                'due_date' => $data['due_date'],
+                'inspection_id' => $inspection->inspection_id,
+                'status' => 'pending',
+                'type_of_inspection' => $data['type_of_inspection'],
+                'violation_date' => now(),
+                'business_id' => $business->business_id,
             ]);
         }
 
-        // Return the inspection and related data
-        return response([
+        // Step 8: Return response
+        return response()->json([
             'message' => 'Inspection added successfully!',
             'inspection' => $inspection,
             'business' => $business,
@@ -144,20 +155,24 @@ class InspectorController extends Controller
         ], 201);
     }
 
-
     public function getInspections(Request $request)
     {
         // Use the inspector guard to fetch the logged-in inspector's details
-        $inspector = $request->user(); // This gives the currently authenticated user
-
-        // Retrieve the inspector's ID
+        $inspector = $request->user();
         $inspectorId = $inspector->inspector_id;
 
-        // Fetch inspections belonging to the logged-in inspector with necessary relationships
+        // Start with the base query
         $query = Inspection::with(['business.owner', 'inspector', 'business.violations'])
             ->where('inspector_id', $inspectorId);
 
-        // Apply filters as needed (e.g., type of inspection, date)
+        // Add business name search
+        if ($request->has('business_name') && !empty($request->business_name)) {
+            $query->whereHas('business', function ($q) use ($request) {
+                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
+            });
+        }
+
+        // Apply existing filters
         if ($request->has('type_of_inspection')) {
             $query->where('type_of_inspection', $request->type_of_inspection);
         }
@@ -166,19 +181,25 @@ class InspectorController extends Controller
             $query->whereDate('inspection_date', $request->inspection_date);
         }
 
-        // Check for sort_order parameter and apply sorting based on created_at
+        // Handle violations filter if present
+        if ($request->has('with_violations')) {
+            $withViolations = $request->with_violations === 'yes';
+            $query->where('with_violations', $withViolations);
+        }
+
+        // Updated sort order handling
         if ($request->has('sort_order')) {
-            if ($request->sort_order === 'latest') {
-                $query->orderBy('created_at', 'desc'); // Sort by creation date descending
-            } elseif ($request->sort_order === 'oldest') {
-                $query->orderBy('created_at', 'asc'); // Sort by creation date ascending
-            }
+            $direction = $request->sort_order === 'asc' ? 'asc' : 'desc';
+            $query->orderBy('created_at', $direction);
+        } else {
+            // Default sorting if not specified
+            $query->orderBy('created_at', 'desc');
         }
 
         // Execute the query and get the inspections
         $inspections = $query->paginate(15);
 
-        // Transform the response to optimize structure
+        // Transform the response (keeping your existing transformation logic)
         $inspections->getCollection()->transform(function ($inspection) {
             return [
                 'inspection_id' => $inspection->inspection_id,
@@ -222,14 +243,11 @@ class InspectorController extends Controller
             ];
         });
 
-        // Return the structured response as JSON
         return response()->json([
             'status' => 200,
             'inspections' => $inspections
         ]);
     }
-
-
 
     public function deleteInspection($id)
     {
