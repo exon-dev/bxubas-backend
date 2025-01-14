@@ -118,32 +118,30 @@ class InspectionController extends Controller
 
 
 
-
     public function getInspectionById($inspection_id)
     {
-        // Fetch the inspection with its related data (including violations)
+        // Start with a base query for fetching inspection data
         $inspection = Inspection::with([
             'business.owner',
             'inspector',
-            'violations', // Directly eager load violations
+            'business.violations.violationDetails', // Eager load violation details
         ])
-            ->where('inspection_id', $inspection_id) // Use the inspection_id from the URL
+            ->where('inspection_id', $inspection_id) // Filter by inspection_id
             ->first();
 
+        // Check if inspection exists
         if (!$inspection) {
             return response()->json(['message' => 'Inspection not found'], 404);
         }
 
-
+        // Log inspection data
         \Log::info('Inspection retrieved', $inspection->toArray());
-        $violations = $inspection->violations;
-        \Log::info('Violation retrieved', ['violations' => $violations]);
 
-        // Map through the violations and format the data
-        $violations = $inspection->violations->map(function ($violation) {
+        // Map through the violations to extract the relevant fields
+        $violations = $inspection->business->violations->map(function ($violation) {
             return [
                 'violation_id' => $violation->violation_id,
-                'nature_of_violation' => $violation->nature_of_violation,
+                'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation')->toArray(), // Pluck all violation details
                 'violation_receipt_no' => $violation->violation_receipt_no,
                 'violation_date' => $violation->violation_date,
                 'due_date' => $violation->due_date,
@@ -151,34 +149,40 @@ class InspectionController extends Controller
             ];
         });
 
-        // Format the response data
+        // Format inspection data in a similar way to getInspections
         $inspectionData = [
             'inspection_id' => $inspection->inspection_id,
             'inspection_date' => $inspection->inspection_date,
             'type_of_inspection' => $inspection->type_of_inspection,
-            'with_violations' => $inspection->with_violations,
+            'with_violations' => $inspection->business->violations->isNotEmpty(),
+            'business_id' => $inspection->business_id,
+            'inspector_id' => $inspection->inspector_id,
+            'created_at' => $inspection->created_at,
+            'updated_at' => $inspection->updated_at,
+            'inspector' => [
+                'inspector_id' => $inspection->inspector->inspector_id,
+                'email' => $inspection->inspector->email,
+                'first_name' => $inspection->inspector->first_name,
+                'last_name' => $inspection->inspector->last_name,
+            ],
             'business' => [
                 'business_id' => $inspection->business->business_id,
+                'business_permit' => $inspection->business->business_permit,
                 'business_name' => $inspection->business->business_name,
                 'image_url' => $inspection->business->image_url,
                 'status' => $inspection->business->status,
                 'owner' => [
                     'business_owner_id' => $inspection->business->owner->business_owner_id,
+                    'email' => $inspection->business->owner->email,
                     'first_name' => $inspection->business->owner->first_name,
                     'last_name' => $inspection->business->owner->last_name,
-                    'email' => $inspection->business->owner->email,
                     'phone_number' => $inspection->business->owner->phone_number,
-                ],
-            ],
-            'inspector' => [
-                'inspector_id' => $inspection->inspector->inspector_id,
-                'first_name' => $inspection->inspector->first_name,
-                'last_name' => $inspection->inspector->last_name,
-                'email' => $inspection->inspector->email,
+                ]
             ],
             'violations' => $violations,
         ];
 
+        // Return the response in a consistent format
         return response()->json([
             'status' => 200,
             'inspection' => $inspectionData,
