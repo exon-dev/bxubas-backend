@@ -45,6 +45,10 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::get('/inspections', [InspectionController::class, 'getInspections']);
         Route::get('/inspections/{id}', [InspectionController::class, 'getInspectionById']);
         Route::delete('/delete-violation/{violation_id}', [InspectorController::class, 'deleteViolation']);
+        Route::get('/violators', [InspectionController::class, 'getInspectionsWithViolations']);
+        Route::post('/resolve/{id}', [ViolationController::class, 'resolve']);
+        Route::get('/upcoming-dues', [InspectionController::class, 'getUpcomingDues']);
+        Route::get('/overdue-violations', [InspectionController::class, 'getOverDueViolators']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
 
     // Dashboard Routes (accessible by both inspectors and admins)

@@ -15,10 +15,29 @@ class ViolationController extends Controller
         return response()->json($violators);
     }
 
-
-    public function resolveViolation()
+    public function resolve($violationId)
     {
+        try {
+            // Find the violation
+            $violation = Violation::findOrFail($violationId);
 
+            // Update the violation status to 'paid'
+            $violation->update([
+                'status' => 'resolved',
+            ]);
+
+            // Return success response
+            return response()->json([
+                'message' => 'Violation resolved successfully',
+                'violation' => $violation
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to resolve violation',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
 }

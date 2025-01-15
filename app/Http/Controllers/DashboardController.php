@@ -24,6 +24,9 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function violators(){
+        
+    }
     // todo modify this with structure of inspected business
 
     public function getUpcomingDueDates()
