@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('business_owners', function (Blueprint $table) {
             $table->char('business_owner_id', 36)->primary(); // Primary key (UUID format)
-            $table->string('email')->unique(); // Unique email for the owner
+            $table->string('email')->nullable(); // Unique email for the owner
             $table->string('first_name'); // First name
             $table->string('last_name'); // Last name
             $table->string('phone_number'); // Phone number
