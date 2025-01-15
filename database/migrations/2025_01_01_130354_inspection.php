@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->char('business_id', 36); // Foreign key to businesses table
             $table->char('inspector_id', 36); // Foreign key to inspectors table
             $table->timestamps(); // Adds created_at and updated_at columns
-
+            $table->string('image_url')->nullable(); // Optional image URL
             // Define foreign key constraints
             $table->foreign('business_id')
                 ->references('business_id')

@@ -11,7 +11,7 @@ class Business extends Model
     public $incrementing = false; // UUID-based primary key
     protected $keyType = 'string'; // UUID is a string
 
-    protected $fillable = ['business_permit', 'business_name', 'image_url', 'status', 'owner_id'];
+    protected $fillable = ['business_permit', 'business_name', 'status', 'owner_id'];
 
     /**
      * Automatically generate UUID for the business_id field

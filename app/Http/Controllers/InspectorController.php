@@ -44,6 +44,8 @@ class InspectorController extends Controller
 
     public function addInspection(Request $request)
     {
+        Log::info('Add Inspection Request', ['request' => $request->all()]);
+
         // Validation rules
         $validationRules = [
             // Business Owner
@@ -56,7 +58,6 @@ class InspectorController extends Controller
             'business_name' => 'required',
             'business_permit' => 'nullable',
             'business_status' => 'required',
-            'image' => 'nullable', // Adjust for file validation
 
             // Address
             'street' => 'required',
@@ -64,6 +65,7 @@ class InspectorController extends Controller
             'zip' => 'required',
 
             // Inspection
+            'image' => 'nullable', // Adjust for file validation
             'type_of_inspection' => 'required',
             'with_violations' => 'required|boolean',
 
@@ -79,6 +81,7 @@ class InspectorController extends Controller
             $validationRules['due_date'] = 'required|date';
         }
 
+        // Validate the incoming request
         $data = $request->validate($validationRules);
 
         // Step 1: Handle file upload (if applicable)
@@ -86,13 +89,20 @@ class InspectorController extends Controller
         $imagePath = null;
 
         if ($request->hasFile('image')) {
-            $imageResponse = $fileController->storeImage($request);
-            if ($imageResponse->getStatusCode() === 200) {
-                $imagePath = $imageResponse->getData()->path; // Extract path from response
-            } else {
+            // Call the storeImage method and get the image path
+            $imagePath = $fileController->storeImage($request); // Assume it returns image path string
+
+            Log::info('Image upload response', ['imagePath' => $imagePath]);
+
+            // If the image upload failed, return an error
+            if (!$imagePath) {
                 return response()->json(['error' => 'Image upload failed'], 400);
             }
+
+            Log::info('Image uploaded successfully', ['path' => $imagePath]);
         }
+
+        Log::info('Image path', ['imagePath' => $imagePath]);
 
         // Step 2: Add inspector_id
         $data['inspector_id'] = auth()->user()->inspector_id;
@@ -113,7 +123,6 @@ class InspectorController extends Controller
             [
                 'business_name' => $data['business_name'],
                 'status' => $data['business_status'],
-                'image_url' => $imagePath, // Save uploaded image URL
                 'owner_id' => $businessOwner->business_owner_id,
             ]
         );
@@ -129,6 +138,7 @@ class InspectorController extends Controller
         // Step 6: Create the inspection
         $inspection = Inspection::create([
             'inspector_id' => $data['inspector_id'],
+            'image_url' => $imagePath, // Save uploaded image URL
             'business_id' => $business->business_id,
             'type_of_inspection' => $data['type_of_inspection'],
             'with_violations' => $data['with_violations'],
@@ -164,8 +174,10 @@ class InspectorController extends Controller
             'business' => $business,
             'owner' => $businessOwner,
             'address' => $address,
+            'image_url' => $imagePath, // Send the image URL in the response
         ], 201);
     }
+
 
     public function getInspections(Request $request)
     {

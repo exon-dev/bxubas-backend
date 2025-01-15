@@ -16,6 +16,7 @@ class Inspection extends Model
         'with_violations',
         'business_id',
         'inspector_id',
+        'image_url'
     ];
 
     /**

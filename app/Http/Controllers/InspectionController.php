@@ -137,24 +137,30 @@ class InspectionController extends Controller
         // Log inspection data
         \Log::info('Inspection retrieved', $inspection->toArray());
 
-        // Map through the violations to extract the relevant fields
-        $violations = $inspection->business->violations->map(function ($violation) {
-            return [
-                'violation_id' => $violation->violation_id,
-                'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation')->toArray(), // Pluck all violation details
-                'violation_receipt_no' => $violation->violation_receipt_no,
-                'violation_date' => $violation->violation_date,
-                'due_date' => $violation->due_date,
-                'status' => $violation->status,
-            ];
-        });
+
+        // Filter violations specific to this inspection
+        $violations = $inspection->business->violations
+            ->filter(function ($violation) use ($inspection) {
+                return $violation->inspection_id === $inspection->inspection_id;
+            })
+            ->map(function ($violation) {
+                return [
+                    'violation_id' => $violation->violation_id,
+                    'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation')->toArray(),
+                    'violation_receipt_no' => $violation->violation_receipt_no,
+                    'violation_date' => $violation->violation_date,
+                    'due_date' => $violation->due_date,
+                    'status' => $violation->status,
+                ];
+            });
 
         // Format inspection data in a similar way to getInspections
         $inspectionData = [
             'inspection_id' => $inspection->inspection_id,
+            'image_url' => $inspection->image_url,
             'inspection_date' => $inspection->inspection_date,
             'type_of_inspection' => $inspection->type_of_inspection,
-            'with_violations' => $inspection->business->violations->isNotEmpty(),
+            'with_violations' => $violations->isNotEmpty(),
             'business_id' => $inspection->business_id,
             'inspector_id' => $inspection->inspector_id,
             'created_at' => $inspection->created_at,
@@ -169,7 +175,6 @@ class InspectionController extends Controller
                 'business_id' => $inspection->business->business_id,
                 'business_permit' => $inspection->business->business_permit,
                 'business_name' => $inspection->business->business_name,
-                'image_url' => $inspection->business->image_url,
                 'status' => $inspection->business->status,
                 'owner' => [
                     'business_owner_id' => $inspection->business->owner->business_owner_id,

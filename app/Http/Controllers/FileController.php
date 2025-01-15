@@ -4,38 +4,26 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
+
 class FileController extends Controller
 {
     public function storeImage(Request $request)
     {
-        // Validate the request
-        $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-        ]);
-
-        // Handle the image upload
+        // Check if the image file is present in the request
         if ($request->hasFile('image')) {
+            // Get the image file from the request
             $image = $request->file('image');
 
-            // Name the image (use business_id if available)
-            $businessId = $request->input('business_id', 'default'); // Fallback to 'default' if no business_id
-            $name = $businessId . '_' . time() . '.' . $image->getClientOriginalExtension();
+            // Define the storage path, storing the image in the 'images' directory
+            $path = $image->store('images', 'public'); // Store the file in the 'public' disk
 
-            // Define the destination path
-            $destinationPath = public_path('/images');
-
-            // Move the image to the destination path
-            $image->move($destinationPath, $name);
-
-            // Save the image path to the database or perform other actions
-            // Example: Image::create(['path' => '/images/' . $name]);
-
-            return response()->json([
-                'success' => 'Image uploaded successfully',
-                'path' => '/images/' . $name,
-            ]);
+            // Return the path of the uploaded image
+            return $path; // Example: 'images/myimage.jpg'
         }
 
-        return response()->json(['error' => 'Image upload failed'], 400);
+        // Return null if no image is provided
+        return null;
     }
+
+
 }
