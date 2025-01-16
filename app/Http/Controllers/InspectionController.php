@@ -24,6 +24,12 @@ class InspectionController extends Controller
                 $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
             });
         }
+        // Add violation receipt number search
+        if ($request->has('violation_receipt_no') && !empty($request->violation_receipt_no)) {
+            $query->whereHas('business.violations', function ($q) use ($request) {
+                $q->where('violation_receipt_no', 'LIKE', '%' . $request->violation_receipt_no . '%');
+            });
+        }
 
         // Apply filters based on request parameters
         if ($request->has('type_of_inspection')) {
