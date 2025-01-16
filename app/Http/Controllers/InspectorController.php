@@ -201,6 +201,183 @@ class InspectorController extends Controller
     }
 
 
+    public function updateInspection(Request $request, $id)
+    {
+        // Log the request for debugging
+        Log::info('Update Inspection Request', ['request' => $request->all(), 'id' => $id]);
+
+        try {
+            // Base validation rules (always required)
+            $validationRules = [
+                // Business Owner
+                'owner_first_name' => 'required|string',
+                'owner_last_name' => 'required|string',
+                'owner_email' => 'nullable|email',
+                'owner_phone_number' => 'required|string',
+
+                // Business
+                'business_name' => 'required|string',
+                'business_permit' => 'nullable|string',
+                'business_status' => 'required|string',
+
+                // Address
+                'street' => 'required|string',
+                'city' => 'required|string',
+                'zip' => 'required|string',
+
+                // Inspection
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'type_of_inspection' => 'required|string',
+                'with_violations' => 'required|in:0,1,true,false',
+            ];
+
+            // Convert with_violations to boolean
+            $hasViolations = filter_var($request->input('with_violations'), FILTER_VALIDATE_BOOLEAN);
+
+            // Add conditional validation rules only if with_violations is true
+            if ($hasViolations) {
+                $validationRules['nature_of_violations'] = 'required|array';
+                $validationRules['nature_of_violations.*'] = 'required|string';
+                $validationRules['violation_receipt'] = 'required|string';
+                $validationRules['due_date'] = 'required|date';
+            }
+
+            // Validate the request
+            $data = $request->validate($validationRules);
+
+            // Handle file upload
+            $fileController = new FileController();
+            $imagePath = null;
+
+            if ($request->hasFile('image')) {
+                $imagePath = $fileController->storeImage($request);
+
+                if (!$imagePath) {
+                    throw new \Exception('Image upload failed');
+                }
+
+                Log::info('Image uploaded successfully', ['path' => $imagePath]);
+            }
+
+            // Add inspector_id to data
+            $data['inspector_id'] = auth()->user()->inspector_id;
+
+            // Begin database transaction
+            DB::beginTransaction();
+
+            try {
+                // Find existing inspection
+                $inspection = Inspection::findOrFail($id);
+
+                // Update business owner
+                $businessOwner = BusinessOwner::updateOrCreate(
+                    ['email' => $data['owner_email']],
+                    [
+                        'first_name' => $data['owner_first_name'],
+                        'last_name' => $data['owner_last_name'],
+                        'phone_number' => $data['owner_phone_number'],
+                    ]
+                );
+
+                // Update business
+                $business = Business::updateOrCreate(
+                    ['business_permit' => $data['business_permit']],
+                    [
+                        'business_name' => $data['business_name'],
+                        'status' => $data['business_status'],
+                        'owner_id' => $businessOwner->business_owner_id,
+                    ]
+                );
+
+                // Update address
+                $address = Address::updateOrCreate(
+                    ['business_id' => $business->business_id],
+                    [
+                        'street' => $data['street'],
+                        'city' => $data['city'],
+                        'zip' => $data['zip'],
+                    ]
+                );
+
+                // Update inspection
+                $inspection->update([
+                    'inspector_id' => $data['inspector_id'],
+                    'image_url' => $imagePath,
+                    'business_id' => $business->business_id,
+                    'type_of_inspection' => $data['type_of_inspection'],
+                    'with_violations' => $hasViolations,
+                    'inspection_date' => now(),
+                ]);
+
+                if ($hasViolations) {
+                    // Handle violations if present
+                    $violation = Violation::updateOrCreate(
+                        ['inspection_id' => $inspection->inspection_id],
+                        [
+                            'violation_receipt_no' => $data['violation_receipt'],
+                            'due_date' => $data['due_date'],
+                            'status' => 'pending',
+                            'type_of_inspection' => $data['type_of_inspection'],
+                            'violation_date' => now(),
+                            'business_id' => $business->business_id,
+                        ]
+                    );
+
+                    // Delete existing violation details
+                    ViolationDetail::where('violation_id', $violation->violation_id)->delete();
+
+                    // Create new violation details
+                    foreach ($data['nature_of_violations'] as $natureOfViolation) {
+                        ViolationDetail::create([
+                            'violation_id' => $violation->violation_id,
+                            'nature_of_violation' => $natureOfViolation,
+                        ]);
+                    }
+                } else {
+                    // If `with_violations` is false, delete associated violations and details
+                    $violation = Violation::where('inspection_id', $inspection->inspection_id)->first();
+
+                    if ($violation) {
+                        // Delete violation details
+                        ViolationDetail::where('violation_id', $violation->violation_id)->delete();
+
+                        // Delete the violation itself
+                        $violation->delete();
+                    }
+                }
+
+                // Commit transaction
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Inspection updated successfully!',
+                    'inspection' => $inspection->load(['business.owner', 'violations.violationDetails']),
+                    'image_url' => $imagePath,
+                ], 200);
+
+            } catch (\Exception $e) {
+                // Rollback transaction on error
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed', ['errors' => $e->errors()]);
+            return response()->json([
+                'error' => 'Validation failed',
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating inspection', ['error' => $e->getMessage()]);
+            return response()->json([
+                'error' => 'Internal Server Error',
+                'message' => 'An error occurred while processing your request.',
+                'debug' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
 
     public function getInspections(Request $request)
     {

@@ -122,6 +122,7 @@ class InspectionController extends Controller
         // Start with a base query for fetching inspection data
         $inspection = Inspection::with([
             'business.owner',
+            'business.address', // Added address relation
             'inspector',
             'business.violations.violationDetails', // Eager load violation details
         ])
@@ -132,9 +133,6 @@ class InspectionController extends Controller
         if (!$inspection) {
             return response()->json(['message' => 'Inspection not found'], 404);
         }
-
-        // Log inspection data
-
 
         // Filter violations specific to this inspection
         $violations = $inspection->business->violations
@@ -174,6 +172,11 @@ class InspectionController extends Controller
                 'business_permit' => $inspection->business->business_permit,
                 'business_name' => $inspection->business->business_name,
                 'status' => $inspection->business->status,
+                'address' => [
+                    'street_address' => $inspection->business->address->street,
+                    'city' => $inspection->business->address->city,
+                    'postal_code' => $inspection->business->address->zip,
+                ],
                 'owner' => [
                     'business_owner_id' => $inspection->business->owner->business_owner_id,
                     'email' => $inspection->business->owner->email,
@@ -233,7 +236,7 @@ class InspectionController extends Controller
         $page = $request->input('page', 1);
 
         // Paginate the filtered results
-        $inspections = $query->paginate(15, ['*'], 'page', $page);
+        $inspections = $query->paginate(10, ['*'], 'page', $page);
 
         // Transform the inspections for consistent structure
         $inspections->getCollection()->transform(function ($inspection) {
@@ -331,7 +334,7 @@ class InspectionController extends Controller
         $page = $request->input('page', 1);
 
         // Paginate the filtered results
-        $inspections = $query->paginate(15, ['*'], 'page', $page);
+        $inspections = $query->paginate(10, ['*'], 'page', $page);
 
         // Transform the inspections for consistent structure
         $inspections->getCollection()->transform(function ($inspection) {
@@ -463,13 +466,17 @@ class InspectionController extends Controller
                     ]
                 ],
                 'violations' => $inspection->business->violations->map(function ($violation) {
-                    // Access the violation details and map them
+                    $dueDate = \Carbon\Carbon::parse($violation->due_date);
+                    $now = now();
+                    $daysOverdue = $dueDate->diffInDays($now);
+
                     return [
                         'violation_id' => $violation->violation_id,
-                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'), // Collect all violation details
+                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
                         'violation_receipt_no' => $violation->violation_receipt_no,
                         'violation_date' => $violation->violation_date,
                         'due_date' => $violation->due_date,
+                        'days_overdue' => $daysOverdue,
                         'status' => $violation->status
                     ];
                 })
@@ -478,7 +485,6 @@ class InspectionController extends Controller
 
         \Log::info('Overdue violators retrieved', $inspections->toArray());
 
-        // Return the transformed data
         return response()->json([
             'status' => 200,
             'inspections' => $inspections
