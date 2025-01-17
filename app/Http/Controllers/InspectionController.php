@@ -385,7 +385,6 @@ class InspectionController extends Controller
         ]);
     }
 
-
     public function getOverDueViolators(Request $request)
     {
         // Base query to fetch inspections with overdue violations
@@ -393,8 +392,10 @@ class InspectionController extends Controller
             'business',
             'business.owner',
             'inspector',
-            'business.violations.violationDetails' // Eager load violation details
-        ])->whereHas('business.violations', function ($q) {
+            'business.violations.violationDetails'
+        ])
+        ->where('with_violations', true) // Check with_violations first
+        ->whereHas('business.violations', function ($q) {
             $q->whereNotNull('violation_id') // Ensure violations exist
                 ->where('due_date', '<', now()); // Due date has passed
         });
@@ -506,10 +507,31 @@ class InspectionController extends Controller
         return response(['message' => 'All inspections deleted']);
     }
 
-    public function resolveViolation($violation_id)
+    public function resolveViolation($inspection_id)
     {
-        $violation = Violation::find($violation_id);
-        $violation->resolved = 1;
+        // Find the violation using the inspection_id
+        $violation = Violation::where('inspection_id', $inspection_id)->first();
+
+
+        // Log the violation resolution attempt
+        \Log::info('Attempting to resolve violation for inspection ID: ' . $inspection_id, [
+            'violation_id' => $violation ? $violation->violation_id : null,
+            'violation_status' => $violation ? $violation->status : null
+        ]);
+
+        // Check if the violation exists
+        if (!$violation) {
+            return response()->json([
+                'status' => 404,
+                'message' => 'No violation found for the given inspection ID'
+            ], 404);
+        }
+
+        // Delete associated violation details
+        $violation->violationDetails()->delete();
+
+        // Update violation status to resolved
+        $violation->status = 'resolved';
         $violation->save();
 
         return response()->json([
@@ -518,4 +540,5 @@ class InspectionController extends Controller
             'violation' => $violation
         ]);
     }
+
 }

@@ -15,29 +15,44 @@ class ViolationController extends Controller
         return response()->json($violators);
     }
 
-    public function resolve($violationId)
+
+    public function resolveViolation($inspection_id)
     {
-        try {
-            // Find the violation
-            $violation = Violation::findOrFail($violationId);
+        // Find the violation using the inspection_id
+        $violation = Violation::where('inspection_id', $inspection_id)->first();
 
-            // Update the violation status to 'paid'
-            $violation->update([
-                'status' => 'resolved',
-            ]);
+        // Log the violation resolution attempt
+        \Log::info('Attempting to resolve violation for inspection ID: ' . $inspection_id, [
+            'violation_id' => $violation ? $violation->violation_id : null,
+            'violation_status' => $violation ? $violation->status : null
+        ]);
 
-            // Return success response
+        // Check if the violation exists
+        if (!$violation) {
             return response()->json([
-                'message' => 'Violation resolved successfully',
-                'violation' => $violation
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to resolve violation',
-                'error' => $e->getMessage()
-            ], 500);
+                'status' => 404,
+                'message' => 'No violation found for the given inspection ID'
+            ], 404);
         }
+
+        // Delete associated violation details
+        $violation->violationDetails()->delete();
+
+        // Update violation status to resolved
+        $violation->status = 'resolved';
+
+        // Update the with_violation in inspections table
+        \DB::table('inspections')
+            ->where('inspection_id', $inspection_id)
+            ->update(['with_violations' => false]);
+
+        $violation->save();
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Violation resolved successfully',
+            'violation' => $violation
+        ]);
     }
 
 }
