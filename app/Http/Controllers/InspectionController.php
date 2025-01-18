@@ -292,47 +292,44 @@ class InspectionController extends Controller
             'business.owner',
             'inspector',
             'business.violations.violationDetails'
-        ])->whereHas('business.violations', function ($q) {
-            $q->whereNotNull('violation_id') // Ensure the violation exists
-                ->where('due_date', '>', now()) // Exclude violations with due dates in the past
-                ->where('due_date', '<=', now()->addDays(3)) // Include violations due within 3 days
-                ->where('status', 'pending'); // Only pending violations
-        });
+        ])
+            ->where('with_violations', 1) // Only get inspections with violations
+            ->whereHas('business.violations', function ($q) {
+                $q->where('status', 'pending')
+                    ->where('due_date', '>', now())
+                    ->where('due_date', '<=', now()->addDays(3));
+            });
 
-        // Apply filters from the request
         if ($request->filled('inspection_id')) {
-            $query->where('inspection_id', $request->inspection_id); // Filter by inspection ID
+            $query->where('inspection_id', $request->inspection_id);
         }
 
         if ($request->filled('inspection_date')) {
-            $query->whereDate('inspection_date', $request->inspection_date); // Filter by inspection date
+            $query->whereDate('inspection_date', $request->inspection_date);
         }
 
         if ($request->filled('inspector_id')) {
-            $query->where('inspector_id', $request->inspector_id); // Filter by inspector ID
+            $query->where('inspector_id', $request->inspector_id);
         }
 
         if ($request->filled('business_name')) {
             $query->whereHas('business', function ($q) use ($request) {
-                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%'); // Filter by business name
+                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
             });
         }
 
-        // Fetch all inspections
         $inspections = $query->get();
 
-        // Group by business_id and only include the first inspection per business with violations
         $uniqueInspections = $inspections->groupBy('business_id')->map(function ($group) {
-            return $group->first(); // Get the first inspection for each business
+            return $group->first();
         });
 
-        // Transform the unique inspections for the response
         $transformedInspections = $uniqueInspections->map(function ($inspection) {
             return [
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
                 'type_of_inspection' => $inspection->type_of_inspection,
-                'with_violations' => $inspection->business->violations->isNotEmpty(),
+                'with_violations' => true, // Since we filtered for this
                 'business_id' => $inspection->business_id,
                 'inspector_id' => $inspection->inspector_id,
                 'created_at' => $inspection->created_at,
@@ -357,31 +354,28 @@ class InspectionController extends Controller
                         'phone_number' => $inspection->business->owner->phone_number
                     ]
                 ],
-                'violations' => $inspection->business->violations->filter(function ($violation) {
-                    return $violation->due_date > now() && $violation->due_date <= now()->addDays(3) && $violation->status === 'pending';
-                })->map(function ($violation) {
-                    return [
-                        'violation_id' => $violation->violation_id,
-                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
-                        'violation_receipt_no' => $violation->violation_receipt_no,
-                        'violation_date' => $violation->violation_date,
-                        'due_date' => $violation->due_date,
-                        'status' => $violation->status
-                    ];
-                })
+                'violations' => $inspection->business->violations
+                    ->filter(function ($violation) {
+                        return $violation->status === 'pending'
+                            && $violation->due_date > now()
+                            && $violation->due_date <= now()->addDays(3);
+                    })
+                    ->map(function ($violation) {
+                        return [
+                            'violation_id' => $violation->violation_id,
+                            'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
+                            'violation_receipt_no' => $violation->violation_receipt_no,
+                            'violation_date' => $violation->violation_date,
+                            'due_date' => $violation->due_date,
+                            'status' => $violation->status
+                        ];
+                    })
             ];
         });
 
-        // Log the transformed data for debugging purposes
-        \Log::info('Upcoming due inspections retrieved', [
-            'request' => $request->all(),
-            'response' => $transformedInspections->toArray()
-        ]);
-
-        // Return the response
         return response()->json([
             'status' => 200,
-            'inspections' => $transformedInspections->values() // Return as array
+            'inspections' => $transformedInspections->values()
         ]);
     }
 
@@ -394,13 +388,12 @@ class InspectionController extends Controller
             'inspector',
             'business.violations.violationDetails'
         ])
-        ->where('with_violations', true) // Check with_violations first
-        ->whereHas('business.violations', function ($q) {
-            $q->whereNotNull('violation_id') // Ensure violations exist
-                ->where('due_date', '<', now()); // Due date has passed
-        });
+            ->where('with_violations', 1) // Only get inspections with violations
+            ->whereHas('business.violations', function ($q) {
+                $q->where('status', 'pending')
+                    ->where('due_date', '<', now());
+            });
 
-        // Apply filters based on request parameters
         if ($request->has('inspection_date')) {
             $query->whereDate('inspection_date', $request->inspection_date);
         }
@@ -409,37 +402,31 @@ class InspectionController extends Controller
             $query->where('inspector_id', $request->inspector_id);
         }
 
-        // Add business name search
         if ($request->has('business_name') && !empty($request->business_name)) {
             $query->whereHas('business', function ($q) use ($request) {
                 $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
             });
         }
 
-        // Updated sort order handling
         if ($request->has('sort_order')) {
             $direction = $request->sort_order === 'asc' ? 'asc' : 'desc';
             $query->orderBy('created_at', $direction);
         } else {
-            // Default sorting if not specified
             $query->orderBy('created_at', 'desc');
         }
 
-        // Fetch the inspections
         $inspections = $query->get();
 
-        // Group by business_id and only include the first inspection per business with overdue violations
         $uniqueInspections = $inspections->groupBy('business_id')->map(function ($group) {
-            return $group->first(); // Get the first inspection for each business
+            return $group->first();
         });
 
-        // Transform the inspections for consistent structure
         $transformedInspections = $uniqueInspections->map(function ($inspection) {
             return [
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
                 'type_of_inspection' => $inspection->type_of_inspection,
-                'with_violations' => $inspection->business->violations->isNotEmpty(), // Check if there are violations
+                'with_violations' => true, // Since we filtered for this
                 'business_id' => $inspection->business_id,
                 'inspector_id' => $inspection->inspector_id,
                 'created_at' => $inspection->created_at,
@@ -464,33 +451,33 @@ class InspectionController extends Controller
                         'phone_number' => $inspection->business->owner->phone_number
                     ]
                 ],
-                'violations' => $inspection->business->violations->map(function ($violation) {
-                    $dueDate = \Carbon\Carbon::parse($violation->due_date);
-                    $now = now();
-                    $daysOverdue = $dueDate->diffInDays($now);
+                'violations' => $inspection->business->violations
+                    ->filter(function ($violation) {
+                        return $violation->status === 'pending'
+                            && $violation->due_date < now();
+                    })
+                    ->map(function ($violation) {
+                        $dueDate = \Carbon\Carbon::parse($violation->due_date);
+                        $daysOverdue = $dueDate->diffInDays(now());
 
-                    return [
-                        'violation_id' => $violation->violation_id,
-                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
-                        'violation_receipt_no' => $violation->violation_receipt_no,
-                        'violation_date' => $violation->violation_date,
-                        'due_date' => $violation->due_date,
-                        'days_overdue' => $daysOverdue,
-                        'status' => $violation->status
-                    ];
-                })
+                        return [
+                            'violation_id' => $violation->violation_id,
+                            'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
+                            'violation_receipt_no' => $violation->violation_receipt_no,
+                            'violation_date' => $violation->violation_date,
+                            'due_date' => $violation->due_date,
+                            'days_overdue' => $daysOverdue,
+                            'status' => $violation->status
+                        ];
+                    })
             ];
         });
 
-        \Log::info('Overdue violators retrieved', $transformedInspections->toArray());
-
-        // Return the response
         return response()->json([
             'status' => 200,
-            'inspections' => $transformedInspections->values() // Return as array
+            'inspections' => $transformedInspections->values()
         ]);
     }
-
 
     // todo work on this later (admin power)
     public function deleteInspection(Request $request)
@@ -540,5 +527,4 @@ class InspectionController extends Controller
             'violation' => $violation
         ]);
     }
-
 }
