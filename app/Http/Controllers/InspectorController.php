@@ -169,6 +169,36 @@ class InspectorController extends Controller
 
                 // Commit transaction
                 DB::commit();
+                // if there is violation (with_violations is true) send notification
+                if ($hasViolations && isset($violation)) {
+                    try {
+                        $notificationController = new NotificationController();
+
+                        // Prepare notification request
+                        $notificationRequest = new Request();
+                        $notificationRequest->merge([
+                            'phone' => $businessOwner->phone_number,
+                            'message' => "Dear {$businessOwner->first_name} {$businessOwner->last_name},
+                                        Your business '{$business->business_name}' has received a violation notice.
+                                        Violation Receipt #: {$violation->violation_receipt_no}
+                                        Due Date: {$violation->due_date}"
+                        ]);
+
+                        // Send SMS notification
+                        $result = $notificationController->sendNotification($notificationRequest);
+
+                        Log::info('Violation notification sent', [
+                            'business_owner' => $businessOwner->email,
+                            'violation_id' => $violation->violation_id,
+                            'result' => $result
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send violation notification', [
+                            'error' => $e->getMessage(),
+                            'business_owner' => $businessOwner->email
+                        ]);
+                    }
+                }
 
                 return response()->json([
                     'message' => 'Inspection added successfully!',

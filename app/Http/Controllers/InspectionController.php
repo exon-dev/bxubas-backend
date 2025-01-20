@@ -334,6 +334,7 @@ class InspectionController extends Controller
                 'inspector_id' => $inspection->inspector_id,
                 'created_at' => $inspection->created_at,
                 'updated_at' => $inspection->updated_at,
+                'image_url' => $inspection->image_url,
                 'inspector' => [
                     'inspector_id' => $inspection->inspector->inspector_id,
                     'email' => $inspection->inspector->email,
@@ -344,7 +345,6 @@ class InspectionController extends Controller
                     'business_id' => $inspection->business->business_id,
                     'business_permit' => $inspection->business->business_permit,
                     'business_name' => $inspection->business->business_name,
-                    'image_url' => $inspection->business->image_url,
                     'status' => $inspection->business->status,
                     'owner' => [
                         'business_owner_id' => $inspection->business->owner->business_owner_id,
@@ -431,6 +431,7 @@ class InspectionController extends Controller
                 'inspector_id' => $inspection->inspector_id,
                 'created_at' => $inspection->created_at,
                 'updated_at' => $inspection->updated_at,
+                'image_url' => $inspection->image_url,
                 'inspector' => [
                     'inspector_id' => $inspection->inspector->inspector_id,
                     'email' => $inspection->inspector->email,
@@ -441,7 +442,6 @@ class InspectionController extends Controller
                     'business_id' => $inspection->business->business_id,
                     'business_permit' => $inspection->business->business_permit,
                     'business_name' => $inspection->business->business_name,
-                    'image_url' => $inspection->business->image_url,
                     'status' => $inspection->business->status,
                     'owner' => [
                         'business_owner_id' => $inspection->business->owner->business_owner_id,
@@ -458,7 +458,7 @@ class InspectionController extends Controller
                     })
                     ->map(function ($violation) {
                         $dueDate = \Carbon\Carbon::parse($violation->due_date);
-                        $daysOverdue = $dueDate->diffInDays(now());
+                        $daysOverdue = (int) max(1, $dueDate->diffInDays(now())); // Ensure whole number
 
                         return [
                             'violation_id' => $violation->violation_id,
@@ -466,7 +466,7 @@ class InspectionController extends Controller
                             'violation_receipt_no' => $violation->violation_receipt_no,
                             'violation_date' => $violation->violation_date,
                             'due_date' => $violation->due_date,
-                            'days_overdue' => $daysOverdue,
+                            'days_overdue' => $daysOverdue, // Overdue days as whole number
                             'status' => $violation->status
                         ];
                     })

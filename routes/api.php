@@ -56,12 +56,13 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     // Dashboard api endpoints (accessible by both inspectors and admins)
     Route::group(['prefix' => 'dashboard'], function () {
         Route::get('/card-info', [DashboardController::class, 'getCardInfo']);
+        Route::get('/violators', [DashboardController::class, 'violators']);
         Route::post('/resolve-violation/{violation_id}', [InspectorController::class, 'resolveViolation']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
 
     // Violation Routes (accessible by both inspectors and admins)
     Route::group(['prefix' => 'violation'], function () {
-        Route::get('/violators', [ViolationController::class, 'getViolators']);
+        Route::get('/all-violators', [ViolationController::class, 'getViolators']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
 
 });

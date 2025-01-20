@@ -13,6 +13,8 @@ class DashboardController extends Controller
     {
         $total_inspectors = Inspector::count(); // Count all inspectors
         $total_inspections = Inspection::count();
+        // $total_violations = Inspection::where('with_violations', true)->count(); // Count inspections with violations
+        $total_resolved_inspections = Violation::where('status', 'resolved')->count();
         $total_violations = Violation::whereHas('inspection', function ($query) {
             $query->where('with_violations', true);
         })->count(); // Count violations tied to inspections with violations
@@ -23,15 +25,88 @@ class DashboardController extends Controller
         return response()->json([
             'total_inspectors' => $total_inspectors,
             'total_inspections' => $total_inspections,
+            'total_resolved_inspections' => $total_resolved_inspections,
             'total_violations' => $total_violations,
             'overdue_violations' => $overdue_violations
         ]);
     }
 
 
-    public function violators()
+    public function violators(Request $request)
     {
+        // Start with a base query
+        $query = Violation::with([
+            'inspection.business.owner',
+            'inspection.inspector',
+            'violationDetails'
+        ])->whereHas('inspection', function ($query) {
+            $query->where('with_violations', true);
+        });
 
+        // Add business name search
+        if ($request->has('business_name') && !empty($request->business_name)) {
+            $query->whereHas('inspection.business', function ($q) use ($request) {
+                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
+            });
+        }
+
+        // Apply status filter
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Sort order handling
+        if ($request->has('sort_order')) {
+            $direction = $request->sort_order === 'asc' ? 'asc' : 'desc';
+            $query->orderBy('created_at', $direction);
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        // Paginate results
+        $violations = $query->paginate(15);
+
+        // Transform the data
+        $violations->getCollection()->transform(function ($violation) {
+            return [
+                'violation_id' => $violation->violation_id,
+                'violation_receipt_no' => $violation->violation_receipt_no,
+                'violation_date' => $violation->violation_date,
+                'due_date' => $violation->due_date,
+                'status' => $violation->status,
+                'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
+                'inspection' => [
+                    'inspection_id' => $violation->inspection->inspection_id,
+                    'inspection_date' => $violation->inspection->inspection_date,
+                    'type_of_inspection' => $violation->inspection->type_of_inspection,
+                    'inspector' => [
+                        'inspector_id' => $violation->inspection->inspector->inspector_id,
+                        'email' => $violation->inspection->inspector->email,
+                        'first_name' => $violation->inspection->inspector->first_name,
+                        'last_name' => $violation->inspection->inspector->last_name
+                    ],
+                    'business' => [
+                        'business_id' => $violation->inspection->business->business_id,
+                        'business_name' => $violation->inspection->business->business_name,
+                        'business_permit' => $violation->inspection->business->business_permit,
+                        'image_url' => $violation->inspection->business->image_url,
+                        'status' => $violation->inspection->business->status,
+                        'owner' => [
+                            'business_owner_id' => $violation->inspection->business->owner->business_owner_id,
+                            'email' => $violation->inspection->business->owner->email,
+                            'first_name' => $violation->inspection->business->owner->first_name,
+                            'last_name' => $violation->inspection->business->owner->last_name,
+                            'phone_number' => $violation->inspection->business->owner->phone_number
+                        ]
+                    ]
+                ]
+            ];
+        });
+
+        return response()->json([
+            'status' => 200,
+            'violators' => $violations
+        ]);
     }
     // todo modify this with structure of inspected business
 
