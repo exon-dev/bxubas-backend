@@ -13,7 +13,7 @@ class BusinessOwner extends Model
 
     protected $fillable = ['email', 'first_name', 'last_name', 'phone_number'];
 
-    // Automatically generate UUID for business_owner_id
+    // Automatically generate UUID for business_owner_ida
     protected static function booted()
     {
         static::creating(function ($businessOwner) {

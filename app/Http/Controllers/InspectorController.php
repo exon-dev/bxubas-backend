@@ -48,6 +48,11 @@ class InspectorController extends Controller
     {
         Log::info('Add Inspection Request', ['request' => $request->all()]);
 
+        // Cast `with_violations` to boolean
+        $request->merge([
+            'with_violations' => filter_var($request->with_violations, FILTER_VALIDATE_BOOLEAN),
+        ]);
+
         try {
             $validationRules = [
                 'owner_first_name' => 'required|string',
@@ -84,14 +89,25 @@ class InspectorController extends Controller
             DB::beginTransaction();
 
             try {
-                $businessOwner = BusinessOwner::firstOrCreate(
-                    ['email' => $data['owner_email']],
-                    [
+                // Check if email is provided
+                if ($data['owner_email']) {
+                    // If email is provided, use firstOrCreate
+                    $businessOwner = BusinessOwner::firstOrCreate(
+                        ['email' => $data['owner_email']],
+                        [
+                            'first_name' => $data['owner_first_name'],
+                            'last_name' => $data['owner_last_name'],
+                            'phone_number' => $data['owner_phone_number'],
+                        ]
+                    );
+                } else {
+                    // If no email, create a new business owner directly
+                    $businessOwner = BusinessOwner::create([
                         'first_name' => $data['owner_first_name'],
                         'last_name' => $data['owner_last_name'],
                         'phone_number' => $data['owner_phone_number'],
-                    ]
-                );
+                    ]);
+                }
 
                 $business = Business::firstOrCreate(
                     ['business_permit' => $data['business_permit']],
@@ -102,12 +118,27 @@ class InspectorController extends Controller
                     ]
                 );
 
-                $address = Address::create([
-                    'street' => $data['street'],
-                    'city' => $data['city'],
-                    'zip' => $data['zip'],
-                    'business_id' => $business->business_id,
-                ]);
+                // First check if an address exists for this business
+                $existingAddress = Address::where('business_id', $business->business_id)->first();
+
+                if (!$existingAddress) {
+                    $address = Address::create([
+                        'street' => $data['street'],
+                        'city' => $data['city'],
+                        'zip' => $data['zip'],
+                        'business_id' => $business->business_id,
+                    ]);
+                }
+
+                // Check if an inspection already exists for this business on the same date
+                $existingInspection = Inspection::where('business_id', $business->business_id)
+                    ->whereDate('inspection_date', now()->toDateString())
+                    ->first();
+
+                if ($existingInspection) {
+                    DB::rollBack();
+                    return response()->json(['error' => 'Inspection already exists for this business on the same date.'], 400);
+                }
 
                 $inspection = Inspection::create([
                     'inspector_id' => $data['inspector_id'],
@@ -169,10 +200,20 @@ class InspectorController extends Controller
     private function sendViolationNotification($businessOwner, $business, $violation)
     {
         try {
-            $notificationController = new NotificationController();
+            $phoneNumber = $businessOwner->phone_number;
 
+            // Check if the phone number starts with '0', remove it, and add '+63'
+            if (substr($phoneNumber, 0, 1) == '0') {
+                $phoneNumber = '+63' . substr($phoneNumber, 1);
+            } else {
+                // If the number does not start with '0', just add '+63'
+                $phoneNumber = '+63' . $phoneNumber;
+            }
+
+            // Send the notification with the formatted phone number
+            $notificationController = new NotificationController();
             $notificationController->sendNotification(new Request([
-                'phone' => $businessOwner->phone_number,
+                'phone' => $phoneNumber,
                 'message' => "Dear {$businessOwner->first_name} {$businessOwner->last_name},
                           Your business '{$business->business_name}' has received a violation notice.
                           Violation Receipt #: {$violation->violation_receipt_no},
@@ -184,6 +225,7 @@ class InspectorController extends Controller
             Log::error('Failed to send violation notification', ['error' => $e->getMessage()]);
         }
     }
+
 
 
     public function updateInspection(Request $request, $id)

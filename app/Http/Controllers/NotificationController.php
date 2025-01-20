@@ -14,7 +14,7 @@ use Exception;
 class NotificationController extends Controller
 {
     /**
-     * View all sent notifications.
+    * View all sent notifications.
      */
     public function sentMessage()
     {
