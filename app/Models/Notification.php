@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
 {
-    protected $primaryKey = 'notification_id'; // Primary key auto-increment by default
-    protected $fillable = ['content', 'violator_id', 'violation_id'];
+    protected $table = 'notifications';
+    protected $primaryKey = 'notification_id';
+    public $timestamps = true;
+
+    protected $fillable = ['title', 'content', 'violator_id', 'violation_id'];
 
     public function violator()
     {

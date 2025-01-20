@@ -13,6 +13,7 @@ use App\Models\Address;
 use App\Models\ViolationDetail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Models\Notification;
 
 class InspectorController extends Controller
 {
@@ -45,70 +46,44 @@ class InspectorController extends Controller
 
     public function addInspection(Request $request)
     {
-        // Log the request for debugging
         Log::info('Add Inspection Request', ['request' => $request->all()]);
 
         try {
-            // Base validation rules (always required)
             $validationRules = [
-                // Business Owner
                 'owner_first_name' => 'required|string',
                 'owner_last_name' => 'required|string',
                 'owner_email' => 'nullable|email',
                 'owner_phone_number' => 'required|string',
-
-                // Business
                 'business_name' => 'required|string',
                 'business_permit' => 'nullable|string',
                 'business_status' => 'required|string',
-
-                // Address
                 'street' => 'required|string',
                 'city' => 'required|string',
                 'zip' => 'required|string',
-
-                // Inspection
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'type_of_inspection' => 'required|string',
-                'with_violations' => 'required|in:0,1,true,false',
+                'with_violations' => 'required|boolean',
             ];
 
-            // Convert with_violations to boolean
             $hasViolations = filter_var($request->input('with_violations'), FILTER_VALIDATE_BOOLEAN);
 
-            // Add conditional validation rules only if with_violations is true
             if ($hasViolations) {
-                $validationRules['nature_of_violations'] = 'required|array';
+                $validationRules['nature_of_violations'] = 'required|array|min:1';
                 $validationRules['nature_of_violations.*'] = 'required|string';
                 $validationRules['violation_receipt'] = 'required|string';
                 $validationRules['due_date'] = 'required|date';
             }
 
-            // Validate the request
             $data = $request->validate($validationRules);
 
-            // Handle file upload
             $fileController = new FileController();
-            $imagePath = null;
+            $imagePath = $request->hasFile('image') ? $fileController->storeImage($request) : null;
 
-            if ($request->hasFile('image')) {
-                $imagePath = $fileController->storeImage($request);
-
-                if (!$imagePath) {
-                    throw new \Exception('Image upload failed');
-                }
-
-                Log::info('Image uploaded successfully', ['path' => $imagePath]);
-            }
-
-            // Add inspector_id to data
             $data['inspector_id'] = auth()->user()->inspector_id;
 
-            // Begin database transaction
             DB::beginTransaction();
 
             try {
-                // Create or update business owner
                 $businessOwner = BusinessOwner::firstOrCreate(
                     ['email' => $data['owner_email']],
                     [
@@ -118,7 +93,6 @@ class InspectorController extends Controller
                     ]
                 );
 
-                // Create or update business
                 $business = Business::firstOrCreate(
                     ['business_permit' => $data['business_permit']],
                     [
@@ -128,7 +102,6 @@ class InspectorController extends Controller
                     ]
                 );
 
-                // Create address
                 $address = Address::create([
                     'street' => $data['street'],
                     'city' => $data['city'],
@@ -136,7 +109,6 @@ class InspectorController extends Controller
                     'business_id' => $business->business_id,
                 ]);
 
-                // Create inspection
                 $inspection = Inspection::create([
                     'inspector_id' => $data['inspector_id'],
                     'image_url' => $imagePath,
@@ -146,7 +118,6 @@ class InspectorController extends Controller
                     'inspection_date' => now(),
                 ]);
 
-                // Handle violations if present
                 if ($hasViolations) {
                     $violation = Violation::create([
                         'violation_receipt_no' => $data['violation_receipt'],
@@ -158,75 +129,59 @@ class InspectorController extends Controller
                         'business_id' => $business->business_id,
                     ]);
 
-                    // Create violation details
                     foreach ($data['nature_of_violations'] as $natureOfViolation) {
                         ViolationDetail::create([
                             'violation_id' => $violation->violation_id,
                             'nature_of_violation' => $natureOfViolation,
                         ]);
                     }
+
+                    Notification::create([
+                        'title' => 'Violation Notice',
+                        'content' => "Your business '{$business->business_name}' has received a violation notice. Receipt #: {$violation->violation_receipt_no}, Due Date: {$violation->due_date}.",
+                        'violator_id' => $businessOwner->business_owner_id,
+                        'violation_id' => $violation->violation_id,
+                    ]);
+
+                    $this->sendViolationNotification($businessOwner, $business, $violation);
                 }
 
-                // Commit transaction
                 DB::commit();
-                // if there is violation (with_violations is true) send notification
-                if ($hasViolations && isset($violation)) {
-                    try {
-                        $notificationController = new NotificationController();
-
-                        // Prepare notification request
-                        $notificationRequest = new Request();
-                        $notificationRequest->merge([
-                            'phone' => $businessOwner->phone_number,
-                            'message' => "Dear {$businessOwner->first_name} {$businessOwner->last_name},
-                                        Your business '{$business->business_name}' has received a violation notice.
-                                        Violation Receipt #: {$violation->violation_receipt_no}
-                                        Due Date: {$violation->due_date}"
-                        ]);
-
-                        // Send SMS notification
-                        $result = $notificationController->sendNotification($notificationRequest);
-
-                        Log::info('Violation notification sent', [
-                            'business_owner' => $businessOwner->email,
-                            'violation_id' => $violation->violation_id,
-                            'result' => $result
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send violation notification', [
-                            'error' => $e->getMessage(),
-                            'business_owner' => $businessOwner->email
-                        ]);
-                    }
-                }
 
                 return response()->json([
                     'message' => 'Inspection added successfully!',
                     'inspection' => $inspection->load(['business.owner', 'violations.violationDetails']),
                     'image_url' => $imagePath,
                 ], 201);
-
             } catch (\Exception $e) {
-                // Rollback transaction on error
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Validation failed', ['errors' => $e->errors()]);
-            return response()->json([
-                'error' => 'Validation failed',
-                'message' => $e->getMessage(),
-                'errors' => $e->errors(),
-            ], 422);
-
+            return response()->json(['error' => 'Validation failed', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
             Log::error('Error adding inspection', ['error' => $e->getMessage()]);
-            return response()->json([
-                'error' => 'Internal Server Error',
-                'message' => 'An error occurred while processing your request.',
-                'debug' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
+            return response()->json(['error' => 'Internal Server Error', 'debug' => $e->getMessage()], 500);
+        }
+    }
+
+    private function sendViolationNotification($businessOwner, $business, $violation)
+    {
+        try {
+            $notificationController = new NotificationController();
+
+            $notificationController->sendNotification(new Request([
+                'phone' => $businessOwner->phone_number,
+                'message' => "Dear {$businessOwner->first_name} {$businessOwner->last_name},
+                          Your business '{$business->business_name}' has received a violation notice.
+                          Violation Receipt #: {$violation->violation_receipt_no},
+                          Due Date: {$violation->due_date}.",
+            ]));
+
+            Log::info('Violation notification sent successfully', ['business_owner' => $businessOwner->email]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send violation notification', ['error' => $e->getMessage()]);
         }
     }
 
@@ -517,3 +472,5 @@ class InspectorController extends Controller
         return response(['message' => 'Inspection deleted']);
     }
 }
+
+
