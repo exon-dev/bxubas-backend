@@ -202,13 +202,7 @@ class InspectorController extends Controller
         try {
             $phoneNumber = $businessOwner->phone_number;
 
-            // Check if the phone number starts with '0', remove it, and add '+63'
-            if (substr($phoneNumber, 0, 1) == '0') {
-                $phoneNumber = '+63' . substr($phoneNumber, 1);
-            } else {
-                // If the number does not start with '0', just add '+63'
-                $phoneNumber = '+63' . $phoneNumber;
-            }
+            Log::info('Formatted phone number', ['phone' => $phoneNumber]);
 
             // Send the notification with the formatted phone number
             $notificationController = new NotificationController();
@@ -219,6 +213,14 @@ class InspectorController extends Controller
                           Violation Receipt #: {$violation->violation_receipt_no},
                           Due Date: {$violation->due_date}.",
             ]));
+
+            // Log the notification attempt
+            Log::info('Using NotificationController to send SMS', [
+                'business_owner' => $businessOwner->business_owner_id,
+                'phone' => $phoneNumber,
+                'business' => $business->business_name,
+                'violation' => $violation->violation_receipt_no
+            ]);
 
             Log::info('Violation notification sent successfully', ['business_owner' => $businessOwner->email]);
         } catch (\Exception $e) {

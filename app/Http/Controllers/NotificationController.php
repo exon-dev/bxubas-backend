@@ -10,11 +10,12 @@ use Twilio\Rest\Client;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Support\Facades\Http;
 
 class NotificationController extends Controller
 {
     /**
-    * View all sent notifications.
+     * View all sent notifications.
      */
     public function sentMessage()
     {
@@ -32,32 +33,64 @@ class NotificationController extends Controller
      */
     public function sendNotification(Request $request)
     {
+        // Validate the incoming request
         $request->validate([
             'phone' => 'required|string',
             'message' => 'required|string',
         ]);
 
-        $twilioSid = env('TWILIO_SID');
-        $twilioAuthToken = env('TWILIO_AUTH_TOKEN');
-        $twilioNumber = env('TWILIO_NUMBER');
-        $to = $request->phone;
-        $messageBody = $request->message;
+        $endpoint = 'https://sms.iprogtech.com/api/v1/sms_messages'; // Updated endpoint
+        $apiToken = env('PHILSMS_API_TOKEN');
+
+        // Prepare headers
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ];
+
+        // Prepare the payload
+        $payload = [
+            'api_token' => $apiToken, // Token from .env
+            'phone_number' => $request->phone, // Updated to match API docs
+            'message' => $request->message, // Message content
+        ];
 
         try {
-            $client = new Client($twilioSid, $twilioAuthToken);
-            $client->messages->create($to, [
-                'from' => $twilioNumber,
-                'body' => $messageBody,
-            ]);
+            // Send the request to the API
+            $response = Http::withHeaders($headers)->post($endpoint, $payload);
 
-            Log::info("Notification sent successfully to {$to}");
+            if ($response->successful()) {
+                $responseData = $response->json();
 
-            return response()->json([
-                'status' => 200,
-                'message' => 'Message sent successfully!',
-            ]);
+                Log::info("API Response:", ['response' => $responseData]);
+
+                if (isset($responseData['status']) && $responseData['status'] == 200) {
+                    Log::info("Notification sent successfully to {$request->phone}");
+
+                    return response()->json([
+                        'status' => 200,
+                        'message' => 'Message sent successfully!',
+                    ]);
+                } else {
+                    Log::error("Error sending notification to {$request->phone}: " . $response->body());
+
+                    return response()->json([
+                        'status' => 500,
+                        'message' => 'Error sending message.',
+                        'error' => $response->body(),
+                    ], 500);
+                }
+            } else {
+                Log::error("Error sending notification to {$request->phone}: " . $response->body());
+
+                return response()->json([
+                    'status' => 500,
+                    'message' => 'Error sending message.',
+                    'error' => $response->body(),
+                ], 500);
+            }
         } catch (Exception $e) {
-            Log::error("Error sending notification to {$to}: {$e->getMessage()}");
+            Log::error("Error sending notification to {$request->phone}: {$e->getMessage()}");
 
             return response()->json([
                 'status' => 500,
@@ -66,6 +99,9 @@ class NotificationController extends Controller
             ], 500);
         }
     }
+
+
+
 
     /**
      * Send notifications for inspections almost due.
