@@ -45,6 +45,11 @@ class InspectionController extends Controller
             $query->where('with_violations', $withViolations);
         }
 
+        // Add inspector filter
+        if ($request->has('inspector_id') && !empty($request->inspector_id)) {
+            $query->where('inspector_id', $request->inspector_id);
+        }
+
         // Updated sort order handling
         if ($request->has('sort_order')) {
             $direction = $request->sort_order === 'asc' ? 'asc' : 'desc';
@@ -494,22 +499,27 @@ class InspectionController extends Controller
         $query = Inspection::with([
             'business',
             'business.owner',
+            'business.address',
             'inspector',
-            'violations.violationDetails'
-        ])->whereHas('violations', function ($q) use ($request) {
-            // Filter violations based on filterType
-            $filterType = $request->input('filterType');
-            if ($filterType === 'upcoming_dues') {
-                $q->where('status', 'pending')
-                    ->where('due_date', '>', now())
-                    ->where('due_date', '<=', now()->addDays(3));
-            } elseif ($filterType === 'overdue') {
-                $q->where('status', 'pending')
-                    ->where('due_date', '<', now());
-            } elseif ($filterType === 'resolved') {
-                $q->where('status', 'resolved');
-            }
-        });
+            'violations.violationDetails',
+        ]);
+
+        // Filter violations based on filterType
+        $filterType = $request->input('filterType');
+        if ($filterType) {
+            $query->whereHas('violations', function ($q) use ($filterType) {
+                if ($filterType === 'upcoming_dues') {
+                    $q->where('status', 'pending')
+                        ->whereDate('due_date', '>=', now()->toDateString()) // Include today
+                        ->whereDate('due_date', '<=', now()->addDays(3)->toDateString());
+                } elseif ($filterType === 'overdue') {
+                    $q->where('status', 'pending')
+                        ->whereDate('due_date', '<', now()->toDateString()); // Before today
+                } elseif ($filterType === 'resolved') {
+                    $q->where('status', 'resolved');
+                }
+            });
+        }
 
         // Apply business_name filter
         if ($request->filled('business_name')) {
@@ -530,26 +540,26 @@ class InspectionController extends Controller
         $query->orderBy('created_at', $sortOrder);
 
         // Pagination
-        $perPage = 15;
+        $perPage = 20;
         $page = $request->input('page', 1);
         $inspections = $query->paginate($perPage, ['*'], 'page', $page);
 
         // Transform the results
         $inspections->getCollection()->transform(function ($inspection) use ($request) {
+            $filterType = $request->input('filterType');
             $violations = $inspection->violations;
 
-            // Apply filterType logic to the violations
-            $filterType = $request->input('filterType');
+            // Filter violations based on filterType
             if ($filterType === 'upcoming_dues') {
                 $violations = $violations->filter(function ($violation) {
                     return $violation->status === 'pending' &&
-                        $violation->due_date > now() &&
-                        $violation->due_date <= now()->addDays(3);
+                        $violation->due_date >= now()->toDateString() &&
+                        $violation->due_date <= now()->addDays(3)->toDateString();
                 });
             } elseif ($filterType === 'overdue') {
                 $violations = $violations->filter(function ($violation) {
                     return $violation->status === 'pending' &&
-                        $violation->due_date < now();
+                        $violation->due_date < now()->toDateString();
                 });
             } elseif ($filterType === 'resolved') {
                 $violations = $violations->filter(function ($violation) {
@@ -562,11 +572,17 @@ class InspectionController extends Controller
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
                 'type_of_inspection' => $inspection->type_of_inspection,
+                'image_url' => $inspection->image_url,
                 'business' => [
                     'business_id' => $inspection->business->business_id,
                     'business_name' => $inspection->business->business_name,
                     'business_permit' => $inspection->business->business_permit,
                     'status' => $inspection->business->status,
+                    'address' => [
+                        'street_address' => $inspection->business->address->street,
+                        'city' => $inspection->business->address->city,
+                        'postal_code' => $inspection->business->address->zip,
+                    ],
                     'owner' => [
                         'first_name' => $inspection->business->owner->first_name,
                         'last_name' => $inspection->business->owner->last_name,
@@ -599,7 +615,6 @@ class InspectionController extends Controller
             'inspections' => $inspections,
         ]);
     }
-
 
 
     // todo work on this later (admin power)
