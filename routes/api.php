@@ -6,6 +6,7 @@ use App\Http\Controllers\InspectorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChartController;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
@@ -65,5 +66,9 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::group(['prefix' => 'violation'], function () {
         Route::get('/all-violators', [ViolationController::class, 'getViolators']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
+
+    Route::group(['prefix' => 'chart'], function () {
+        Route::get('/chart-data', [ChartController::class, 'getChartData']);
+    });
 
 });
