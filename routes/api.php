@@ -69,6 +69,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     Route::group(['prefix' => 'chart'], function () {
         Route::get('/chart-data', [ChartController::class, 'getChartData']);
+        Route::get('/kpi-data', [ChartController::class, 'getKPIData']);
     });
 
 });
