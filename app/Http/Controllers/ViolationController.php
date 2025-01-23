@@ -91,7 +91,6 @@ class ViolationController extends Controller
         ]);
     }
 
-
     public function resolveViolation($inspection_id)
     {
         // Find the violation using the inspection_id

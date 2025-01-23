@@ -204,15 +204,21 @@ class InspectorController extends Controller
 
             Log::info('Formatted phone number', ['phone' => $phoneNumber]);
 
+            // Format the due date
+            $dueDate = date('F j, Y', strtotime($violation->due_date));
+
             // Send the notification with the formatted phone number
+            // Send a friendly notification about potential violations
             $notificationController = new NotificationController();
             $notificationController->sendNotification(new Request([
                 'phone' => $phoneNumber,
-                'message' => "Dear {$businessOwner->first_name} {$businessOwner->last_name},
-                          Your business '{$business->business_name}' has received a violation notice.
-                          Violation Receipt #: {$violation->violation_receipt_no},
-                          Due Date: {$violation->due_date}.",
+                'message' => "Hi {$businessOwner->first_name} {$businessOwner->last_name},
+
+You have a new violation notice from the Business Permit and Licensing Department (BPLD). Please visit our office on or before {$dueDate}, and refer to the reciept {$violation->violation_receipt_no}.
+
+Thank you!"
             ]));
+
 
             // Log the notification attempt
             Log::info('Using NotificationController to send SMS', [
