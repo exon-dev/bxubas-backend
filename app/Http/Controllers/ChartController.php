@@ -13,9 +13,12 @@ class ChartController extends Controller
 
     public function getChartData(Request $request)
     {
+        // Get filter parameters
         $period = $request->input('period', 'month');
+        $startDate = $request->input('startDate');
+        $endDate = $request->input('endDate');
+        $status = $request->input('status', 'all');
         $year = $request->input('year', date('Y'));
-        $month = $request->input('month');
 
         // Define date format and grouping based on period
         $dateFormat = match ($period) {
@@ -30,101 +33,86 @@ class ChartController extends Controller
             'month' => 'MONTHNAME(inspection_date)',
         };
 
-        // For bar graph - inspections and violations count
+        // Base queries
         $inspectionsQuery = Inspection::selectRaw(
             "COUNT(*) as total,
-        CONCAT('Week ', WEEK(inspection_date)) as label,
-        YEARWEEK(inspection_date) as week"
-        )
-            ->whereYear('inspection_date', $year);
+        {$labelFormat} as label,
+        {$dateFormat} as period_group"
+        );
 
-        // Join `violations` with `inspections` to access `inspection_date`
         $violationsQuery = Violation::join('inspections', 'violations.inspection_id', '=', 'inspections.inspection_id')
             ->selectRaw(
                 "COUNT(*) as total,
-            CONCAT('Week ', WEEK(inspection_date)) as label,
-            YEARWEEK(inspection_date) as week"
-            )
-            ->whereYear('inspections.inspection_date', $year);
+            {$labelFormat} as label,
+            {$dateFormat} as period_group"
+            );
 
-        // For pie graph - resolved vs total violations
-        $resolvedViolations = Violation::where('status', 'resolved')
-            ->whereYear('created_at', $year);
-        $totalViolations = Violation::whereYear('created_at', $year);
+        $resolvedViolations = Violation::query();
+        $totalViolations = Violation::query();
 
-        // For line graph - inspections with and without violations
         $inspectionsWithViolations = Inspection::has('violations')
             ->selectRaw(
                 "COUNT(*) as total,
-            CONCAT('Week ', WEEK(inspection_date)) as label,
-            YEARWEEK(inspection_date) as week"
-            )
-            ->whereYear('inspection_date', $year);
+            {$labelFormat} as label,
+            {$dateFormat} as period_group"
+            );
 
         $inspectionsWithoutViolations = Inspection::doesntHave('violations')
             ->selectRaw(
                 "COUNT(*) as total,
-            CONCAT('Week ', WEEK(inspection_date)) as label,
-            YEARWEEK(inspection_date) as week"
-            )
-            ->whereYear('inspection_date', $year);
+            {$labelFormat} as label,
+            {$dateFormat} as period_group"
+            );
 
-        // Apply period-specific filters
-        if ($period === 'day') {
-            if (!$month) {
-                $startDate = now()->subDays(30);
-                $inspectionsQuery->where('inspection_date', '>=', $startDate);
-                $violationsQuery->where('inspections.inspection_date', '>=', $startDate);
-                $resolvedViolations->where('created_at', '>=', $startDate);
-                $totalViolations->where('created_at', '>=', $startDate);
-                $inspectionsWithViolations->where('inspection_date', '>=', $startDate);
-                $inspectionsWithoutViolations->where('inspection_date', '>=', $startDate);
-            } else {
-                $inspectionsQuery->whereMonth('inspection_date', $month);
-                $violationsQuery->whereMonth('inspections.inspection_date', $month);
-                $resolvedViolations->whereMonth('created_at', $month);
-                $totalViolations->whereMonth('created_at', $month);
-                $inspectionsWithViolations->whereMonth('inspection_date', $month);
-                $inspectionsWithoutViolations->whereMonth('inspection_date', $month);
+        // Apply date range filters if provided
+        if ($startDate && $endDate) {
+            $dateQueries = [$inspectionsQuery, $violationsQuery, $inspectionsWithViolations, $inspectionsWithoutViolations];
+            foreach ($dateQueries as $query) {
+                $query->whereBetween('inspection_date', [$startDate, $endDate]);
             }
-        } elseif ($period === 'week') {
-            if (!$month) {
-                $startDate = now()->subWeeks(12);
-                $endDate = now()->endOfMonth();
-                $inspectionsQuery->whereBetween('inspection_date', [$startDate, $endDate]);
-                $violationsQuery->whereBetween('inspections.inspection_date', [$startDate, $endDate]);
-                $resolvedViolations->whereBetween('created_at', [$startDate, $endDate]);
-                $totalViolations->whereBetween('created_at', [$startDate, $endDate]);
-                $inspectionsWithViolations->whereBetween('inspection_date', [$startDate, $endDate]);
-                $inspectionsWithoutViolations->whereBetween('inspection_date', [$startDate, $endDate]);
-            } else {
-                $inspectionsQuery->whereMonth('inspection_date', $month);
-                $violationsQuery->whereMonth('inspections.inspection_date', $month);
-                $resolvedViolations->whereMonth('created_at', $month);
-                $totalViolations->whereMonth('created_at', $month);
-                $inspectionsWithViolations->whereMonth('inspection_date', $month);
-                $inspectionsWithoutViolations->whereMonth('inspection_date', $month);
+
+            $resolvedViolations->whereBetween('created_at', [$startDate, $endDate]);
+            $totalViolations->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            // Default date range based on period if no specific dates provided
+            $defaultStartDate = match ($period) {
+                'day' => now()->subDays(30),
+                'week' => now()->subWeeks(12),
+                'month' => now()->startOfYear(),
+            };
+
+            $dateQueries = [$inspectionsQuery, $violationsQuery, $inspectionsWithViolations, $inspectionsWithoutViolations];
+            foreach ($dateQueries as $query) {
+                $query->where('inspection_date', '>=', $defaultStartDate);
             }
-        } elseif ($month) {
-            $inspectionsQuery->whereMonth('inspection_date', $month);
-            $violationsQuery->whereMonth('inspections.inspection_date', $month);
-            $resolvedViolations->whereMonth('created_at', $month);
-            $totalViolations->whereMonth('created_at', $month);
-            $inspectionsWithViolations->whereMonth('inspection_date', $month);
-            $inspectionsWithoutViolations->whereMonth('inspection_date', $month);
+
+            $resolvedViolations->where('created_at', '>=', $defaultStartDate);
+            $totalViolations->where('created_at', '>=', $defaultStartDate);
         }
 
-        // Group by the appropriate week and label
-        $inspectionsQuery->groupBy('week', 'label');
-        $violationsQuery->groupBy('week', 'label');
-        $inspectionsWithViolations->groupBy('week', 'label');
-        $inspectionsWithoutViolations->groupBy('week', 'label');
+        // Apply status filter if provided
+        if ($status !== 'all') {
+            $violationsQuery->where('violations.status', $status);
+            $resolvedViolations->where('status', $status);
+            $totalViolations->where('status', $status);
 
-        // Order by week
-        $inspectionsQuery->orderBy('week');
-        $violationsQuery->orderBy('week');
-        $inspectionsWithViolations->orderBy('week');
-        $inspectionsWithoutViolations->orderBy('week');
+            if ($status === 'resolved') {
+                $inspectionsWithViolations->whereHas('violations', function ($query) {
+                    $query->where('status', 'resolved');
+                });
+            } else {
+                $inspectionsWithViolations->whereHas('violations', function ($query) {
+                    $query->where('status', 'pending');
+                });
+            }
+        }
+
+        // Group by period
+        $groupQueries = [$inspectionsQuery, $violationsQuery, $inspectionsWithViolations, $inspectionsWithoutViolations];
+        foreach ($groupQueries as $query) {
+            $query->groupBy('period_group', 'label')
+                ->orderBy('period_group');
+        }
 
         return response()->json([
             'barGraph' => [
@@ -132,7 +120,7 @@ class ChartController extends Controller
                 'violations' => $violationsQuery->get()
             ],
             'pieGraph' => [
-                'resolved' => $resolvedViolations->count(),
+                'resolved' => $resolvedViolations->where('status', 'resolved')->count(),
                 'total' => $totalViolations->count()
             ],
             'lineGraph' => [
