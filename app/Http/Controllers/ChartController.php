@@ -18,6 +18,7 @@ class ChartController extends Controller
         $startDate = $request->input('startDate');
         $endDate = $request->input('endDate');
         $status = $request->input('status', 'all');
+        $month = $request->input('month');
         $year = $request->input('year', date('Y'));
 
         // Define date format and grouping based on period
@@ -64,15 +65,38 @@ class ChartController extends Controller
             {$dateFormat} as period_group"
             );
 
+        // Apply month filter if provided
+        if ($month) {
+            $dateQueries = [$inspectionsQuery, $violationsQuery, $inspectionsWithViolations, $inspectionsWithoutViolations];
+            foreach ($dateQueries as $query) {
+                $query->whereMonth('inspection_date', $month)
+                    ->whereYear('inspection_date', $year);
+            }
+
+            $resolvedViolations->whereHas('inspection', function ($query) use ($month, $year) {
+                $query->whereMonth('inspection_date', $month)
+                    ->whereYear('inspection_date', $year);
+            });
+
+            $totalViolations->whereHas('inspection', function ($query) use ($month, $year) {
+                $query->whereMonth('inspection_date', $month)
+                    ->whereYear('inspection_date', $year);
+            });
+        }
         // Apply date range filters if provided
-        if ($startDate && $endDate) {
+        elseif ($startDate && $endDate) {
             $dateQueries = [$inspectionsQuery, $violationsQuery, $inspectionsWithViolations, $inspectionsWithoutViolations];
             foreach ($dateQueries as $query) {
                 $query->whereBetween('inspection_date', [$startDate, $endDate]);
             }
 
-            $resolvedViolations->whereBetween('created_at', [$startDate, $endDate]);
-            $totalViolations->whereBetween('created_at', [$startDate, $endDate]);
+            $resolvedViolations->whereHas('inspection', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('inspection_date', [$startDate, $endDate]);
+            });
+
+            $totalViolations->whereHas('inspection', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('inspection_date', [$startDate, $endDate]);
+            });
         } else {
             // Default date range based on period if no specific dates provided
             $defaultStartDate = match ($period) {
@@ -86,8 +110,13 @@ class ChartController extends Controller
                 $query->where('inspection_date', '>=', $defaultStartDate);
             }
 
-            $resolvedViolations->where('created_at', '>=', $defaultStartDate);
-            $totalViolations->where('created_at', '>=', $defaultStartDate);
+            $resolvedViolations->whereHas('inspection', function ($query) use ($defaultStartDate) {
+                $query->where('inspection_date', '>=', $defaultStartDate);
+            });
+
+            $totalViolations->whereHas('inspection', function ($query) use ($defaultStartDate) {
+                $query->where('inspection_date', '>=', $defaultStartDate);
+            });
         }
 
         // Apply status filter if provided
@@ -129,8 +158,6 @@ class ChartController extends Controller
             ]
         ]);
     }
-
-
 
     public function getKPIData(Request $request)
     {
