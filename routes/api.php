@@ -60,6 +60,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::get('/card-info', [DashboardController::class, 'getCardInfo']);
         Route::get('/violators', [DashboardController::class, 'violators']);
         Route::post('/resolve-violation/{violation_id}', [InspectorController::class, 'resolveViolation']);
+        Route::get('/bell-notif-details', [DashboardController::class, 'getBellNotifDetails']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
 
     // Violation Routes (accessible by both inspectors and admins)

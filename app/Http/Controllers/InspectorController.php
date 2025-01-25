@@ -109,16 +109,20 @@ class InspectorController extends Controller
                     ]);
                 }
 
+                // Modify `firstOrCreate` logic for businesses
                 $business = Business::firstOrCreate(
-                    ['business_permit' => $data['business_permit']],
+                    [
+                        'business_permit' => $data['business_permit'], // Matches businesses with a permit
+                        'business_name' => $data['business_name'],     // Matches businesses without a permit
+                        'owner_id' => $businessOwner->business_owner_id,
+                    ],
                     [
                         'business_name' => $data['business_name'],
                         'status' => $data['business_status'],
-                        'owner_id' => $businessOwner->business_owner_id,
                     ]
                 );
 
-                // First check if an address exists for this business
+                // Check or create an address for the business
                 $existingAddress = Address::where('business_id', $business->business_id)->first();
 
                 if (!$existingAddress) {
@@ -197,6 +201,7 @@ class InspectorController extends Controller
         }
     }
 
+
     private function sendViolationNotification($businessOwner, $business, $violation)
     {
         try {
@@ -212,12 +217,18 @@ class InspectorController extends Controller
             $notificationController = new NotificationController();
             $notificationController->sendNotification(new Request([
                 'phone' => $phoneNumber,
-                'message' => "Hi {$businessOwner->first_name} {$businessOwner->last_name},
+                'message' => "Subject: Notification from the Business Permit and Licensing Department
 
-You have a new violation notice from the Business Permit and Licensing Department (BPLD). Please visit our office on or before {$dueDate}, and refer to the reciept {$violation->violation_receipt_no}.
+Dear {$businessOwner->first_name} {$businessOwner->last_name},
 
-Thank you!"
+This is a courtesy notification from the Business Permit and Licensing Department (BPLD). We kindly request you to visit our office by {$dueDate} regarding an important matter. Please reference receipt number {$violation->violation_receipt_no} when you arrive.
+
+If you have any questions, feel free to contact us directly.
+
+Thank you,
+Business Permit and Licensing Department"
             ]));
+
 
 
             // Log the notification attempt
@@ -231,6 +242,48 @@ Thank you!"
             Log::info('Violation notification sent successfully', ['business_owner' => $businessOwner->email]);
         } catch (\Exception $e) {
             Log::error('Failed to send violation notification', ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function sendReminderViolationNotification($businessOwner, $business, $violation)
+    {
+        try {
+            $phoneNumber = $businessOwner->phone_number;
+
+            Log::info('Formatted phone number', ['phone' => $phoneNumber]);
+
+            // Format the due date
+            $dueDate = date('F j, Y', strtotime($violation->due_date));
+
+            // Send the notification with the formatted phone number
+            // Send a friendly notification about potential violations
+            $notificationController = new NotificationController();
+            $notificationController->sendNotification(new Request([
+                'phone' => $phoneNumber,
+                'message' => "Subject: Reminder: Visit the BPLD
+
+Dear {$businessOwner->first_name} {$businessOwner->last_name},
+
+This is a friendly reminder from the Business Permit and Licensing Department (BPLD) regarding your pending matter. Kindly visit our office by {$dueDate}, and reference receipt number {$violation->violation_receipt_no} for assistance.
+
+If you have any questions or require further clarification, please contact us directly.
+
+Thank you for your prompt attention to this matter.
+
+Best regards,
+Business Permit and Licensing Department"
+            ]));
+
+            Log::info('Using NotificationController to send SMS', [
+                'business_owner' => $businessOwner->business_owner_id,
+                'phone' => $phoneNumber,
+                'business' => $business->business_name,
+                'violation' => $violation->violation_receipt_no
+            ]);
+
+            Log::info('Violation reminder notification sent successfully', ['business_owner' => $businessOwner->email]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send violation reminder notification', ['error' => $e->getMessage()]);
         }
     }
 
@@ -471,6 +524,7 @@ Thank you!"
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
                 'type_of_inspection' => $inspection->type_of_inspection,
+                'image_url' => $inspection->image_url,
                 'with_violations' => $inspection->with_violations,
                 'business_id' => $inspection->business_id,
                 'inspector_id' => $inspection->inspector_id,
@@ -486,7 +540,6 @@ Thank you!"
                     'business_id' => $inspection->business->business_id,
                     'business_permit' => $inspection->business->business_permit,
                     'business_name' => $inspection->business->business_name,
-                    'image_url' => $inspection->business->image_url,
                     'status' => $inspection->business->status,
                     'owner' => [
                         'business_owner_id' => $inspection->business->owner->business_owner_id,

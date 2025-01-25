@@ -40,7 +40,10 @@ class NotificationController extends Controller
         ]);
 
         $endpoint = 'https://sms.iprogtech.com/api/v1/sms_messages'; // Updated endpoint
-        $apiToken = env('PHILSMS_API_TOKEN');
+        $apiToken = config('services.philsms.api_token');
+
+        // Log the API token for debugging
+        Log::debug('API Token:', ['token' => $apiToken]);
 
         // Prepare headers
         $headers = [

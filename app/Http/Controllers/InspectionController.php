@@ -493,6 +493,7 @@ class InspectionController extends Controller
     //     ]);
     // }
 
+
     public function getFilteredInspections(Request $request)
     {
         // Base query with relationships
@@ -504,17 +505,23 @@ class InspectionController extends Controller
             'violations.violationDetails',
         ]);
 
-        // Filter violations based on filterType
+        // Filter inspections based on `with_violations`
+        if ($request->filled('with_violations')) {
+            $withViolations = filter_var($request->input('with_violations'), FILTER_VALIDATE_BOOLEAN);
+            $query->where('with_violations', $withViolations);
+        }
+
+        // Apply filterType logic for violations if needed
         $filterType = $request->input('filterType');
-        if ($filterType) {
+        if ($filterType && $request->input('with_violations', true)) {
             $query->whereHas('violations', function ($q) use ($filterType) {
                 if ($filterType === 'upcoming_dues') {
                     $q->where('status', 'pending')
-                        ->whereDate('due_date', '>=', now()->toDateString()) // Include today
+                        ->whereDate('due_date', '>=', now()->toDateString())
                         ->whereDate('due_date', '<=', now()->addDays(3)->toDateString());
                 } elseif ($filterType === 'overdue') {
                     $q->where('status', 'pending')
-                        ->whereDate('due_date', '<', now()->toDateString()); // Before today
+                        ->whereDate('due_date', '<', now()->toDateString());
                 } elseif ($filterType === 'resolved') {
                     $q->where('status', 'resolved');
                 }
@@ -546,28 +553,6 @@ class InspectionController extends Controller
 
         // Transform the results
         $inspections->getCollection()->transform(function ($inspection) use ($request) {
-            $filterType = $request->input('filterType');
-            $violations = $inspection->violations;
-
-            // Filter violations based on filterType
-            if ($filterType === 'upcoming_dues') {
-                $violations = $violations->filter(function ($violation) {
-                    return $violation->status === 'pending' &&
-                        $violation->due_date >= now()->toDateString() &&
-                        $violation->due_date <= now()->addDays(3)->toDateString();
-                });
-            } elseif ($filterType === 'overdue') {
-                $violations = $violations->filter(function ($violation) {
-                    return $violation->status === 'pending' &&
-                        $violation->due_date < now()->toDateString();
-                });
-            } elseif ($filterType === 'resolved') {
-                $violations = $violations->filter(function ($violation) {
-                    return $violation->status === 'resolved';
-                });
-            }
-
-            // Format the response structure
             return [
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
@@ -590,7 +575,7 @@ class InspectionController extends Controller
                         'phone_number' => $inspection->business->owner->phone_number,
                     ],
                 ],
-                'violations' => $violations->map(function ($violation) {
+                'violations' => $inspection->violations->map(function ($violation) {
                     return [
                         'violation_id' => $violation->violation_id,
                         'violation_receipt_no' => $violation->violation_receipt_no,
@@ -617,6 +602,7 @@ class InspectionController extends Controller
     }
 
 
+
     // todo work on this later (admin power)
     public function deleteInspection(Request $request)
     {
@@ -624,45 +610,5 @@ class InspectionController extends Controller
         $inspection = Inspection::find($id);
         $inspection->delete();
         return response(['message' => 'Inspection deleted']);
-    }
-
-    public function deleteAllInspection()
-    {
-        Inspection::truncate();
-        return response(['message' => 'All inspections deleted']);
-    }
-
-    public function resolveViolation($inspection_id)
-    {
-        // Find the violation using the inspection_id
-        $violation = Violation::where('inspection_id', $inspection_id)->first();
-
-
-        // Log the violation resolution attempt
-        \Log::info('Attempting to resolve violation for inspection ID: ' . $inspection_id, [
-            'violation_id' => $violation ? $violation->violation_id : null,
-            'violation_status' => $violation ? $violation->status : null
-        ]);
-
-        // Check if the violation exists
-        if (!$violation) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'No violation found for the given inspection ID'
-            ], 404);
-        }
-
-        // Delete associated violation details
-        $violation->violationDetails()->delete();
-
-        // Update violation status to resolved
-        $violation->status = 'resolved';
-        $violation->save();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Violation resolved successfully',
-            'violation' => $violation
-        ]);
     }
 }

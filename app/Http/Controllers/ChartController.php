@@ -44,8 +44,8 @@ class ChartController extends Controller
         $violationsQuery = Violation::join('inspections', 'violations.inspection_id', '=', 'inspections.inspection_id')
             ->selectRaw(
                 "COUNT(*) as total,
-            {$labelFormat} as label,
-            {$dateFormat} as period_group"
+        {$labelFormat} as label,
+        {$dateFormat} as period_group"
             );
 
         $resolvedViolations = Violation::query();
@@ -54,15 +54,15 @@ class ChartController extends Controller
         $inspectionsWithViolations = Inspection::has('violations')
             ->selectRaw(
                 "COUNT(*) as total,
-            {$labelFormat} as label,
-            {$dateFormat} as period_group"
+        {$labelFormat} as label,
+        {$dateFormat} as period_group"
             );
 
         $inspectionsWithoutViolations = Inspection::doesntHave('violations')
             ->selectRaw(
                 "COUNT(*) as total,
-            {$labelFormat} as label,
-            {$dateFormat} as period_group"
+        {$labelFormat} as label,
+        {$dateFormat} as period_group"
             );
 
         // Apply month filter if provided
@@ -150,6 +150,7 @@ class ChartController extends Controller
             ],
             'pieGraph' => [
                 'resolved' => $resolvedViolations->where('status', 'resolved')->count(),
+                'pending' => $resolvedViolations->where('status', 'pending')->count(),
                 'total' => $totalViolations->count()
             ],
             'lineGraph' => [
@@ -158,6 +159,8 @@ class ChartController extends Controller
             ]
         ]);
     }
+
+
 
     public function getKPIData(Request $request)
     {

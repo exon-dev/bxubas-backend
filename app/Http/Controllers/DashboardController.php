@@ -9,6 +9,34 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    public function getBellNotifDetails()
+    {
+        // Fetch inspections with violations for today
+        $inspections = Inspection::with(['inspector', 'violations.violationDetails'])
+            ->where('with_violations', true) // Use boolean true for clarity
+            ->whereDate('inspection_date', now()->toDateString())
+            ->get()
+            ->map(function ($inspection) {
+                return [
+                    'inspector_name' => $inspection->inspector->first_name . ' ' . $inspection->inspector->last_name,
+                    'inspection_date' => $inspection->inspection_date,
+                    'type_of_inspection' => $inspection->type_of_inspection,
+                    'violations' => $inspection->violations->map(function ($violation) {
+                        return [
+                            'receipt_no' => $violation->violation_receipt_no,
+                            'details' => $violation->violationDetails->pluck('nature_of_violation')->toArray(), // Ensure array format
+                        ];
+                    })->toArray(), // Convert collection to array
+                ];
+            });
+
+        // Return JSON response with notifications
+        return response()->json([
+            'notifications' => $inspections,
+        ]);
+    }
+
+
     public function getCardInfo()
     {
         $total_inspectors = Inspector::count(); // Count all inspectors

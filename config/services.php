@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'philsms' => [
+        'api_token' => env('IPROG_TOKEN'),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
