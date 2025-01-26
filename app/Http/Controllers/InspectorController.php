@@ -242,21 +242,21 @@ Business Permit and Licensing Department";
                 'message' => $message
             ]));
 
-            // Check if the response was successful
+            // Validate the response and log accordingly
             if ($response->status() != 200) {
                 Log::error('SMS was not sent to business owner', [
                     'business_owner' => $businessOwner->business_owner_id,
                     'phone' => $phoneNumber,
-                    'message' => 'SMS was not sent to business owner, please check your SMS API.'
+                    'message' => $response->json()['message'] ?? 'Unknown error from SMS API',
                 ]);
                 return 'SMS was not sent to business owner, please check your SMS API.';
             }
 
-            // Log the notification attempt
+            // Log success only when response is truly successful
             Log::info('Violation notification sent successfully', ['business_owner' => $businessOwner->email]);
-
             return 'Violation notification sent successfully.';
         } catch (\Exception $e) {
+            // Catch exceptions and log errors
             Log::error('Failed to send violation notification', ['error' => $e->getMessage()]);
             return 'SMS was not sent to business owner, please check your SMS API.';
         }

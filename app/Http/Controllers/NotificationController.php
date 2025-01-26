@@ -31,72 +31,66 @@ class NotificationController extends Controller
     /**
      * Send a notification via Twilio SMS.
      */
-    public function sendNotification(Request $request, $callback = null)
+    public function sendNotification(Request $request)
     {
-        // Validate the incoming request
         $request->validate([
             'phone' => 'required|string',
             'message' => 'required|string',
         ]);
 
-        $endpoint = 'https://sms.iprogtech.com/api/v1/sms_messages'; // Updated endpoint
+        $endpoint = 'https://sms.iprogtech.com/api/v1/sms_messages';
         $apiToken = config('services.philsms.api_token');
 
-        // Log the API token for debugging
-        Log::debug('API Token:', ['token' => $apiToken]);
-
-        // Prepare headers
         $headers = [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ];
 
-        // Prepare the payload
         $payload = [
-            'api_token' => $apiToken, // Token from .env
-            'phone_number' => $request->phone, // Updated to match API docs
-            'message' => $request->message, // Message content
+            'api_token' => $apiToken,
+            'phone_number' => $request->phone,
+            'message' => $request->message,
         ];
 
         try {
-            // Send the request to the API
             $response = Http::withHeaders($headers)->post($endpoint, $payload);
 
             if ($response->successful()) {
                 $responseData = $response->json();
-                Log::info("API Response:", ['response' => $responseData]);
 
                 if (isset($responseData['status']) && $responseData['status'] == 200) {
-                    Log::info("Notification sent successfully to {$request->phone}");
+                    // Only log success if the API confirms
+                    Log::info('Violation notification sent successfully.', ['business_owner' => $request->owner_email ?? null]);
                     return response()->json([
                         'status' => 200,
                         'message' => 'Message sent successfully!',
                     ]);
                 } else {
-                    Log::error("Error sending notification to {$request->phone}: " . $response->body());
-                    // Return a success message even if SMS sending failed
+                    // Log API response error
+                    Log::error('Error sending notification: ' . $response->body());
                     return response()->json([
-                        'status' => 200,
-                        'message' => 'Inspection created successfully, but SMS notification failed.',
+                        'status' => 500,
+                        'message' => $responseData['message'] ?? 'Failed to send the SMS notification.',
                     ]);
                 }
             } else {
-                Log::error("Error sending notification to {$request->phone}: " . $response->body());
-                // Return a success message even if SMS sending failed
+                // Log non-successful API response
+                Log::error('API Error: ' . $response->body());
                 return response()->json([
-                    'status' => 200,
-                    'message' => 'Inspection created successfully, but SMS notification failed.',
+                    'status' => 500,
+                    'message' => 'Failed to send the SMS notification due to an API error.',
                 ]);
             }
         } catch (Exception $e) {
-            Log::error("Error sending notification to {$request->phone}: {$e->getMessage()}");
-            // Return a success message even if an exception occurred
+            // Log exceptions
+            Log::error('Exception: ' . $e->getMessage());
             return response()->json([
-                'status' => 200,
-                'message' => 'Inspection created successfully, but there was an error sending the SMS notification.',
+                'status' => 500,
+                'message' => 'An error occurred while trying to send the SMS notification.',
             ]);
         }
     }
+
 
 
 
