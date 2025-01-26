@@ -91,7 +91,6 @@ class InspectorController extends Controller
             try {
                 // Check if email is provided
                 if ($data['owner_email']) {
-                    // If email is provided, use firstOrCreate
                     $businessOwner = BusinessOwner::firstOrCreate(
                         ['email' => $data['owner_email']],
                         [
@@ -101,7 +100,6 @@ class InspectorController extends Controller
                         ]
                     );
                 } else {
-                    // If no email, create a new business owner directly
                     $businessOwner = BusinessOwner::create([
                         'first_name' => $data['owner_first_name'],
                         'last_name' => $data['owner_last_name'],
@@ -109,11 +107,10 @@ class InspectorController extends Controller
                     ]);
                 }
 
-                // Modify `firstOrCreate` logic for businesses
                 $business = Business::firstOrCreate(
                     [
-                        'business_permit' => $data['business_permit'], // Matches businesses with a permit
-                        'business_name' => $data['business_name'],     // Matches businesses without a permit
+                        'business_permit' => $data['business_permit'],
+                        'business_name' => $data['business_name'],
                         'owner_id' => $businessOwner->business_owner_id,
                     ],
                     [
@@ -122,11 +119,10 @@ class InspectorController extends Controller
                     ]
                 );
 
-                // Check or create an address for the business
                 $existingAddress = Address::where('business_id', $business->business_id)->first();
 
                 if (!$existingAddress) {
-                    $address = Address::create([
+                    Address::create([
                         'street' => $data['street'],
                         'city' => $data['city'],
                         'zip' => $data['zip'],
@@ -134,7 +130,6 @@ class InspectorController extends Controller
                     ]);
                 }
 
-                // Check if an inspection already exists for this business on the same date
                 $existingInspection = Inspection::where('business_id', $business->business_id)
                     ->whereDate('inspection_date', now()->toDateString())
                     ->first();
@@ -153,7 +148,18 @@ class InspectorController extends Controller
                     'inspection_date' => now(),
                 ]);
 
+                $notificationMessage = null;
                 if ($hasViolations) {
+                    $existingViolation = Violation::where('violation_receipt_no', $data['violation_receipt'])->first();
+
+                    if ($existingViolation) {
+                        DB::rollBack();
+                        return response()->json([
+                            'error' => 'Violation receipt number already exists.',
+                            'violation_receipt_no' => $data['violation_receipt']
+                        ], 400);
+                    }
+
                     $violation = Violation::create([
                         'violation_receipt_no' => $data['violation_receipt'],
                         'due_date' => $data['due_date'],
@@ -178,7 +184,11 @@ class InspectorController extends Controller
                         'violation_id' => $violation->violation_id,
                     ]);
 
-                    $this->sendViolationNotification($businessOwner, $business, $violation);
+                    // Get the response from the notification function
+                    $notificationMessage = $this->sendViolationNotification($businessOwner, $business, $violation);
+                    Log::info($notificationMessage);  // Log the result
+
+                    // Proceed even if SMS fails
                 }
 
                 DB::commit();
@@ -187,19 +197,20 @@ class InspectorController extends Controller
                     'message' => 'Inspection added successfully!',
                     'inspection' => $inspection->load(['business.owner', 'violations.violationDetails']),
                     'image_url' => $imagePath,
+                    'notification_message' => $notificationMessage ?? 'SMS notification sent successfully.',
                 ], 201);
             } catch (\Exception $e) {
                 DB::rollBack();
-                throw $e;
+                Log::error('Error adding inspection', ['error' => $e->getMessage()]);
+                return response()->json(['error' => 'Internal Server Error', 'debug' => $e->getMessage()], 500);
             }
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Validation failed', ['errors' => $e->errors()]);
-            return response()->json(['error' => 'Validation failed', 'errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            Log::error('Error adding inspection', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Internal Server Error', 'debug' => $e->getMessage()], 500);
+            return response()->json(['error' => 'Validation failed', 'validation_errors' => $e->errors()], 422);
         }
     }
+
+
 
 
     private function sendViolationNotification($businessOwner, $business, $violation)
@@ -212,12 +223,8 @@ class InspectorController extends Controller
             // Format the due date
             $dueDate = date('F j, Y', strtotime($violation->due_date));
 
-            // Send the notification with the formatted phone number
-            // Send a friendly notification about potential violations
-            $notificationController = new NotificationController();
-            $notificationController->sendNotification(new Request([
-                'phone' => $phoneNumber,
-                'message' => "Subject: Notification from the Business Permit and Licensing Department
+            // Prepare the message
+            $message = "Subject: Notification from the Business Permit and Licensing Department
 
 Dear {$businessOwner->first_name} {$businessOwner->last_name},
 
@@ -226,24 +233,36 @@ This is a courtesy notification from the Business Permit and Licensing Departmen
 If you have any questions, feel free to contact us directly.
 
 Thank you,
-Business Permit and Licensing Department"
+Business Permit and Licensing Department";
+
+            // Send the notification via the NotificationController
+            $notificationController = new NotificationController();
+            $response = $notificationController->sendNotification(new Request([
+                'phone' => $phoneNumber,
+                'message' => $message
             ]));
 
-
+            // Check if the response was successful
+            if ($response->status() != 200) {
+                Log::error('SMS was not sent to business owner', [
+                    'business_owner' => $businessOwner->business_owner_id,
+                    'phone' => $phoneNumber,
+                    'message' => 'SMS was not sent to business owner, please check your SMS API.'
+                ]);
+                return 'SMS was not sent to business owner, please check your SMS API.';
+            }
 
             // Log the notification attempt
-            Log::info('Using NotificationController to send SMS', [
-                'business_owner' => $businessOwner->business_owner_id,
-                'phone' => $phoneNumber,
-                'business' => $business->business_name,
-                'violation' => $violation->violation_receipt_no
-            ]);
-
             Log::info('Violation notification sent successfully', ['business_owner' => $businessOwner->email]);
+
+            return 'Violation notification sent successfully.';
         } catch (\Exception $e) {
             Log::error('Failed to send violation notification', ['error' => $e->getMessage()]);
+            return 'SMS was not sent to business owner, please check your SMS API.';
         }
     }
+
+
 
     private function sendReminderViolationNotification($businessOwner, $business, $violation)
     {

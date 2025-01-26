@@ -15,7 +15,7 @@ return new class extends Migration {
 
             // Primary and other columns
             $table->char('business_id', 36)->primary();
-            $table->string('business_permit')->nullable()->unique(); // Unique permit identifier
+            $table->string('business_permit')->nullable(); // Unique permit identifier
             $table->string('business_name'); // Name of the business
             $table->string('status'); // Status of the business (active, inactive, etc.)
             $table->char('owner_id', 36); // Foreign key column for the business owner

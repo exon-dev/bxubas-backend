@@ -31,7 +31,7 @@ class NotificationController extends Controller
     /**
      * Send a notification via Twilio SMS.
      */
-    public function sendNotification(Request $request)
+    public function sendNotification(Request $request, $callback = null)
     {
         // Validate the incoming request
         $request->validate([
@@ -64,44 +64,40 @@ class NotificationController extends Controller
 
             if ($response->successful()) {
                 $responseData = $response->json();
-
                 Log::info("API Response:", ['response' => $responseData]);
 
                 if (isset($responseData['status']) && $responseData['status'] == 200) {
                     Log::info("Notification sent successfully to {$request->phone}");
-
                     return response()->json([
                         'status' => 200,
                         'message' => 'Message sent successfully!',
                     ]);
                 } else {
                     Log::error("Error sending notification to {$request->phone}: " . $response->body());
-
+                    // Return a success message even if SMS sending failed
                     return response()->json([
-                        'status' => 500,
-                        'message' => 'Error sending message.',
-                        'error' => $response->body(),
-                    ], 500);
+                        'status' => 200,
+                        'message' => 'Inspection created successfully, but SMS notification failed.',
+                    ]);
                 }
             } else {
                 Log::error("Error sending notification to {$request->phone}: " . $response->body());
-
+                // Return a success message even if SMS sending failed
                 return response()->json([
-                    'status' => 500,
-                    'message' => 'Error sending message.',
-                    'error' => $response->body(),
-                ], 500);
+                    'status' => 200,
+                    'message' => 'Inspection created successfully, but SMS notification failed.',
+                ]);
             }
         } catch (Exception $e) {
             Log::error("Error sending notification to {$request->phone}: {$e->getMessage()}");
-
+            // Return a success message even if an exception occurred
             return response()->json([
-                'status' => 500,
-                'message' => 'Error sending message.',
-                'error' => $e->getMessage(),
-            ], 500);
+                'status' => 200,
+                'message' => 'Inspection created successfully, but there was an error sending the SMS notification.',
+            ]);
         }
     }
+
 
 
 

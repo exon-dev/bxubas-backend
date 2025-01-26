@@ -83,8 +83,16 @@ class AdminController extends Controller
             'email' => 'required|email',
         ]);
 
+        // Check if an inspector with the given email already exists
+        if (Inspector::where('email', $data['email'])->exists()) {
+            return response()->json([
+                'status' => 409,
+                'message' => 'Account already in use. Please use a different email.'
+            ], 409);
+        }
+
         // Generate a random 8-character password with symbols
-        $password = Str::random(8); // Generates a random 8-character password
+        $password = Str::random(8);
 
         // Hash the generated password
         $data['password'] = Hash::make($password);
@@ -92,25 +100,37 @@ class AdminController extends Controller
         // Add admin_id to the data array from the logged-in admin
         $data['admin_id'] = auth()->user()->admin_id;
 
-        // Create inspector
-        $inspector = Inspector::create($data);
+        // Create the inspector instance but do not save it yet
+        $inspector = new Inspector($data);
 
-        $toEmail = $inspector->email;
-        $toName = $inspector->first_name . ' ' . $inspector->last_name;
+        $toEmail = $data['email'];
+        $toName = $data['first_name'] . ' ' . $data['last_name'];
 
         // Prepare the message
-        $message = 'Your Inspector account has been created successfully. Your email is ' . $inspector->email . ' and your password is ' . $password . '. Please change your password after logging in.';
+        $message = 'Your Inspector account has been created successfully. Your email is ' . $toEmail . ' and your password is ' . $password . '. Please change your password after logging in.';
 
-        // Send email
-        Mail::to($toEmail)->send(new SendCredentials($message, $toName));
+        try {
+            // Attempt to send email
+            Mail::to($toEmail)->send(new SendCredentials($message, $toName));
 
-        // Return success response
-        return response()->json([
-            'status' => 200,
-            'message' => 'Inspector created successfully',
-            'inspector' => $inspector
-        ]);
+            // Save inspector only if email was sent successfully
+            $inspector->save();
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Inspector created successfully',
+                'inspector' => $inspector
+            ]);
+        } catch (\Exception $e) {
+            // Handle email sending failure
+            return response()->json([
+                'status' => 500,
+                'message' => 'Failed to send email. Inspector account was not created.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
+
 
     public function inspectors()
     {
