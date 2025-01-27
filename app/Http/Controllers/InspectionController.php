@@ -150,6 +150,9 @@ class InspectionController extends Controller
                 return $violation->inspection_id === $inspection->inspection_id;
             })
             ->map(function ($violation) {
+                // Check if notification exists for this violation
+                $notificationExists = \App\Models\Notification::where('violation_id', $violation->violation_id)->exists();
+
                 return [
                     'violation_id' => $violation->violation_id,
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation')->toArray(),
@@ -157,6 +160,9 @@ class InspectionController extends Controller
                     'violation_date' => $violation->violation_date,
                     'due_date' => $violation->due_date,
                     'status' => $violation->status,
+                    'notification_status' => $notificationExists ?
+                        'Business owner notified' :
+                        'SMS was not sent to Business Owner. Please take immediate action'
                 ];
             });
 
@@ -296,6 +302,9 @@ class InspectionController extends Controller
                     ? $now->diffInDays($dueDate, false)
                     : null;
 
+                // Check if notification exists for this violation
+                $notificationExists = \App\Models\Notification::where('violation_id', $violation->violation_id)->exists();
+
                 return [
                     'violation_id' => $violation->violation_id,
                     'violation_receipt_no' => $violation->violation_receipt_no,
@@ -304,7 +313,10 @@ class InspectionController extends Controller
                     'status' => $violation->status,
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
                     'days_until_due' => $daysUntilDue >= 0 ? $daysUntilDue : null,
-                    'days_overdue' => $overdueDays < 0 ? abs($overdueDays) : null
+                    'days_overdue' => $overdueDays < 0 ? abs($overdueDays) : null,
+                    'notification_status' => $notificationExists ?
+                        'Business owner notified' :
+                        'SMS was not sent to Business Owner. Please take immediate action'
                 ];
             });
 
