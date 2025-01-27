@@ -7,7 +7,9 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChartController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
+
 
 // Public Routes
 Route::post("/admin-login", [AdminController::class, 'login']);
@@ -71,6 +73,10 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::group(['prefix' => 'chart'], function () {
         Route::get('/chart-data', [ChartController::class, 'getChartData']);
         Route::get('/kpi-data', [ChartController::class, 'getKPIData']);
+    });
+
+    Route::group(['prefix' => 'notification'], function () {
+        Route::get('/sent-messages', [NotificationController::class, 'sentMessage']);
     });
 
 });

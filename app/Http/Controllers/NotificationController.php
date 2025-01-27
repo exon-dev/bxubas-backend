@@ -17,16 +17,94 @@ class NotificationController extends Controller
     /**
      * View all sent notifications.
      */
-    public function sentMessage()
+    public function sentMessage(Request $request)
     {
-        $data = Notification::all();
+        try {
+            // Get query parameters with defaults
+            $page = $request->input('page', 1);
+            $perPage = $request->input('per_page', 15);
+            $sortOrder = $request->input('sort_order', 'desc');
+            $status = $request->input('status');
+            $search = $request->input('search');
 
-        return response()->json([
-            'status' => 200,
-            'message' => 'All sent messages retrieved successfully.',
-            'data' => $data,
-        ]);
+            // Start building the query
+            $query = Notification::with(['violator', 'violation'])
+                ->join('violations', 'notifications.violation_id', '=', 'violations.violation_id')
+                ->select('notifications.*');
+
+            // Apply status filter if provided
+            if ($status && $status !== 'all') {
+                $query->where('violations.status', $status);
+            }
+
+            // Apply search filter if provided
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('notifications.content', 'like', "%{$search}%")
+                        ->orWhereHas('violator', function ($q) use ($search) {
+                            $q->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('violation', function ($q) use ($search) {
+                            $q->where('violation_receipt_no', 'like', "%{$search}%");
+                        });
+                });
+            }
+
+            // Apply sorting
+            $query->orderBy('violations.violation_date', $sortOrder);
+
+            // Paginate the results
+            $notifications = $query->paginate($perPage);
+
+            // Transform the data
+            $transformedData = $notifications->through(function ($notification) {
+                return [
+                    'notification_id' => $notification->notification_id,
+                    'title' => $notification->title,
+                    'content' => $notification->content,
+                    'violator' => [
+                        'violator_id' => $notification->violator->business_owner_id,
+                        'first_name' => $notification->violator->first_name,
+                        'last_name' => $notification->violator->last_name,
+                        'email' => $notification->violator->email,
+                        'phone_number' => $notification->violator->phone_number,
+                    ],
+                    'violation' => [
+                        'violation_id' => $notification->violation->violation_id,
+                        'type_of_inspection' => $notification->violation->type_of_inspection,
+                        'violation_receipt_no' => $notification->violation->violation_receipt_no,
+                        'violation_date' => $notification->violation->violation_date,
+                        'due_date' => $notification->violation->due_date,
+                        'status' => $notification->violation->status,
+                        'violation_status' => $notification->violation->violation_status,
+                    ],
+                ];
+            });
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'All sent messages retrieved successfully.',
+                'data' => $transformedData->items(),
+                'pagination' => [
+                    'current_page' => $notifications->currentPage(),
+                    'per_page' => $notifications->perPage(),
+                    'total' => $notifications->total(),
+                    'last_page' => $notifications->lastPage(),
+                    'from' => $notifications->firstItem(),
+                    'to' => $notifications->lastItem(),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error retrieving sent messages.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
+
 
     /**
      * Send a notification via Twilio SMS.
@@ -55,43 +133,36 @@ class NotificationController extends Controller
         try {
             $response = Http::withHeaders($headers)->post($endpoint, $payload);
 
-            if ($response->successful()) {
-                $responseData = $response->json();
+            // Ensure the response is decoded as an array if it's JSON
+            $responseData = $response->successful() ? $response->json() : [];
 
+            Log::info('SMS API Response:', ['response' => $responseData]);
+
+            if ($response->successful()) {
                 if (isset($responseData['status']) && $responseData['status'] == 200) {
-                    // Only log success if the API confirms
-                    Log::info('Violation notification sent successfully.', ['business_owner' => $request->owner_email ?? null]);
-                    return response()->json([
+                    return [
                         'status' => 200,
-                        'message' => 'Message sent successfully!',
-                    ]);
+                        'message' => 'Message sent successfully!'
+                    ];
                 } else {
-                    // Log API response error
-                    Log::error('Error sending notification: ' . $response->body());
-                    return response()->json([
+                    return [
                         'status' => 500,
-                        'message' => $responseData['message'] ?? 'Failed to send the SMS notification.',
-                    ]);
+                        'message' => $responseData['message'] ?? 'Failed to send the SMS notification.'
+                    ];
                 }
             } else {
-                // Log non-successful API response
-                Log::error('API Error: ' . $response->body());
-                return response()->json([
+                return [
                     'status' => 500,
-                    'message' => 'Failed to send the SMS notification due to an API error.',
-                ]);
+                    'message' => 'Failed to send the SMS notification due to an API error.'
+                ];
             }
         } catch (Exception $e) {
-            // Log exceptions
-            Log::error('Exception: ' . $e->getMessage());
-            return response()->json([
+            return [
                 'status' => 500,
-                'message' => 'An error occurred while trying to send the SMS notification.',
-            ]);
+                'message' => 'An error occurred while trying to send the SMS notification.'
+            ];
         }
     }
-
-
 
 
 

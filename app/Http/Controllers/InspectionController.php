@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Inspector;
 use App\Models\Inspection;
 use App\Models\Violation;
+use App\Models\Notification;
 
 class InspectionController extends Controller
 {
@@ -65,8 +66,18 @@ class InspectionController extends Controller
         // Paginate the filtered results
         $inspections = $query->paginate(15, ['*'], 'page', $page);
 
+        // if with violations
+        // retrieve the sent notice, if violation_id not in notifications then
+        // status = "notice not sent" else notice sent
+        // then add to collections
+
         // Transform the inspections for consistent structure
         $inspections->getCollection()->transform(function ($inspection) {
+            // Check notification status only when there are violations
+            $notificationStatus = false;
+            if ($inspection->with_violations && $inspection->business->violations->first()) {
+                $notificationStatus = Notification::where('violation_id', $inspection->business->violations->first()->violation_id)->exists();
+            }
             return [
                 'inspection_id' => $inspection->inspection_id,
                 'inspection_date' => $inspection->inspection_date,
@@ -76,6 +87,7 @@ class InspectionController extends Controller
                 'inspector_id' => $inspection->inspector_id,
                 'created_at' => $inspection->created_at,
                 'updated_at' => $inspection->updated_at,
+                'notice_status' => $inspection->with_violations && $inspection->business->violations->isNotEmpty() ? ($notificationStatus ? 'notice sent' : 'notice not sent') : null,
                 'inspector' => [
                     'inspector_id' => $inspection->inspector->inspector_id,
                     'email' => $inspection->inspector->email,
