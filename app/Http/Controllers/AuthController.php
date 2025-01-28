@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Exception;
 
 
 class AuthController extends Controller
@@ -177,7 +178,7 @@ class AuthController extends Controller
             return response()->json([
                 'status' => 422,
                 'message' => $e->getMessage(),
-                'errors' => $e->errors()    
+                'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             Log::info($e);
@@ -188,4 +189,71 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Update personal information for logged-in user
+     */
+    public function updatePersonalInfo(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'first_name' => 'required|string',
+                'last_name' => 'required|string',
+            ], [
+                'email.required' => 'The email field is required.',
+                'email.email' => 'The email must be a valid email address.',
+                'first_name.required' => 'The first name field is required.',
+                'last_name.required' => 'The last name field is required.'
+            ]);
+
+            // Check in Admin table
+            $admin = Admin::where('email', $request->email)->first();
+
+            // Check in Inspector table if not found in Admin
+            $inspector = !$admin ? Inspector::where('email', $request->email)->first() : null;
+
+            // If user not found in either table
+            if (!$admin && !$inspector) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'User not found with this email.'
+                ], 404);
+            }
+
+            $user = $admin ?: $inspector;
+
+            // Update user information
+            $user->first_name = $request->first_name;
+            $user->last_name = $request->last_name;
+
+            $user->save();
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Personal information updated successfully.',
+                'data' => [
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::info($e);
+            return response()->json([
+                'status' => 422,
+                'message' => $e->getMessage()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::info($e);
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error updating personal information.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
 }

@@ -20,7 +20,8 @@ Route::post('/inspector-login', [InspectorController::class, 'login']);
 Route::group(['prefix' => 'auth'], function () {
     Route::post('/change-password-request', [AuthController::class, 'changePasswordRequest']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
-    Route::post('/reset-logged-in-password', [AuthController::class, 'resetLoggedInPassword']);
+    Route::post('/reset-logged-in-password', [AuthController::class, 'resetLoggedInPassword'])->middleware('auth:sanctum');
+    Route::post('/update-personal-info', [AuthController::class, 'updatePersonalInfo'])->middleware('auth:sanctum');
 });
 
 // Routes protected by Sanctum authentication
