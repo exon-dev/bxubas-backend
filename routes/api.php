@@ -22,6 +22,8 @@ Route::group(['prefix' => 'auth'], function () {
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/reset-logged-in-password', [AuthController::class, 'resetLoggedInPassword'])->middleware('auth:sanctum');
     Route::post('/update-personal-info', [AuthController::class, 'updatePersonalInfo'])->middleware('auth:sanctum');
+    Route::post('/update-profile-picture', [AuthController::class, 'updateProfilePicture'])->middleware('auth:sanctum');
+    Route::post('/get-user-profile', [AuthController::class, 'getUserProfile'])->middleware('auth:sanctum');
 });
 
 // Routes protected by Sanctum authentication
@@ -57,11 +59,13 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::get('/upcoming-dues', [InspectionController::class, 'getUpcomingDues']);
         Route::get('/overdue-violations', [InspectionController::class, 'getOverDueViolators']);
         Route::get('/filtered-violations', [InspectionController::class, 'getFilteredInspections']);
+        Route::get('/filtered-violation-inspector', [InspectionController::class, 'getFilteredInspectionsByInspector']);
     })->middleware('auth:admin|inspector'); // Modified middleware to allow both admins and inspectors
 
     // Dashboard api endpoints (accessible by both inspectors and admins)
     Route::group(['prefix' => 'dashboard'], function () {
         Route::get('/card-info', [DashboardController::class, 'getCardInfo']);
+        Route::post('/card-info-by-inspector', [DashboardController::class, 'getCardInfoByInspector']);
         Route::get('/violators', [DashboardController::class, 'violators']);
         Route::post('/resolve-violation/{violation_id}', [InspectorController::class, 'resolveViolation']);
         Route::get('/bell-notif-details', [DashboardController::class, 'getBellNotifDetails']);

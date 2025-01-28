@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Exception;
+use Illuminate\Support\Facades\Storage;
 
 
 class AuthController extends Controller
@@ -174,7 +175,7 @@ class AuthController extends Controller
                 'message' => 'Password updated successfully.'
             ]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'status' => 422,
                 'message' => $e->getMessage(),
@@ -245,15 +246,121 @@ class AuthController extends Controller
                 'status' => 422,
                 'message' => $e->getMessage()
             ], 422);
-        } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * Update profile picture for logged-in user
+     */
+    public function updateProfilePicture(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'profile_picture' => 'required|image|mimes:jpeg,png,jpg|max:2048'
+            ], [
+                'email.required' => 'The email field is required.',
+                'email.email' => 'The email must be a valid email address.',
+                'profile_picture.required' => 'Profile picture is required.',
+                'profile_picture.image' => 'The file must be an image.',
+                'profile_picture.mimes' => 'The image must be a jpeg, png, or jpg.',
+                'profile_picture.max' => 'The image size must not exceed 2MB.'
+            ]);
+
+            // Check in Admin table
+            $admin = Admin::where('email', $request->email)->first();
+
+            // Check in Inspector table if not found in Admin
+            $inspector = !$admin ? Inspector::where('email', $request->email)->first() : null;
+
+            // If user not found in either table
+            if (!$admin && !$inspector) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'User not found with this email.'
+                ], 404);
+            }
+
+            $user = $admin ?: $inspector;
+
+            // Delete old profile picture if exists
+            if ($user->image_url && Storage::disk('public')->exists($user->image_url)) {
+                Storage::disk('public')->delete($user->image_url);
+            }
+
+            // Store new profile picture
+            $path = $request->file('profile_picture')->store('profile-pictures', 'public');
+
+            // Update user's image_url
+            $user->image_url = $path;
+            $user->save();
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Profile picture updated successfully.',
+                'data' => [
+                    'image_url' => Storage::url($path)
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 422,
+                'message' => $e->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Get user profile information
+     */
+    public function getUserProfile(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email'
+            ]);
+
+            // Check in Admin table
+            $admin = Admin::where('email', $request->email)->first();
+
+            // Check in Inspector table if not found in Admin
+            $inspector = !$admin ? Inspector::where('email', $request->email)->first() : null;
+
+            if (!$admin && !$inspector) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'User not found with this email.'
+                ], 404);
+            }
+
+            $user = $admin ?: $inspector;
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Profile retrieved successfully.',
+                'data' => [
+                    'email' => $user->email,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'image_url' => $user->image_url ? Storage::url($user->image_url) : null
+                ]
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => 422,
+                'message' => $e->getMessage(),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (Exception $e) {
             Log::info($e);
             return response()->json([
                 'status' => 500,
-                'message' => 'Error updating personal information.',
+                'message' => 'Error retrieving profile.',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
-
 
 }

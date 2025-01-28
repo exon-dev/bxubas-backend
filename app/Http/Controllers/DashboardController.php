@@ -60,13 +60,45 @@ class DashboardController extends Controller
     }
 
 
+    public function getCardInfoByInspector(Request $request)
+    {
+        // Validate inspector_id is provided
+        $request->validate([
+            'inspector_id' => 'required|exists:inspectors,inspector_id',
+        ]);
+
+        $inspectorId = $request->inspector_id;
+
+        $total_inspections = Inspection::where('inspector_id', $inspectorId)->count(); // Count inspections for the specific inspector
+        $total_resolved_inspections = Violation::where('status', 'resolved')
+            ->whereHas('inspection', function ($query) use ($inspectorId) {
+                $query->where('inspector_id', $inspectorId);
+            })->count(); // Count resolved inspections for the specific inspector
+        $total_violations = Violation::whereHas('inspection', function ($query) use ($inspectorId) {
+            $query->where('inspector_id', $inspectorId)
+                ->where('with_violations', true);
+        })->count(); // Count violations tied to inspections with violations for the specific inspector
+        $overdue_violations = Violation::whereHas('inspection', function ($query) use ($inspectorId) {
+            $query->where('inspector_id', $inspectorId)
+                ->where('with_violations', true);
+        })->where('due_date', '<', now())->count(); // Count overdue violations tied to inspections with violations for the specific inspector
+
+        return response()->json([
+            'total_inspections' => $total_inspections,
+            'total_resolved_inspections' => $total_resolved_inspections,
+            'total_violations' => $total_violations,
+            'overdue_violations' => $overdue_violations
+        ]);
+    }
+
+
     public function violators(Request $request)
     {
         // Start with a base query
         $query = Violation::with([
             'inspection.business.owner',
             'inspection.inspector',
-            'violationDetails'
+        'violationDetails'
         ])->whereHas('inspection', function ($query) {
             $query->where('with_violations', true);
         });
@@ -134,25 +166,6 @@ class DashboardController extends Controller
         return response()->json([
             'status' => 200,
             'violators' => $violations
-        ]);
-    }
-    // todo modify this with structure of inspected business
-
-    public function getUpcomingDueDates()
-    {
-        $upcoming_due_dates = Violation::where('due_date', '>', now()->addDays(3))->get();
-
-        return response()->json([
-            'upcoming_due_dates' => $upcoming_due_dates
-        ]);
-    }
-
-    public function getOverdueViolations()
-    {
-        $overdue_violations = Violation::where('due_date', '<', now())->get();
-
-        return response()->json([
-            'overdue_violations' => $overdue_violations
         ]);
     }
 }

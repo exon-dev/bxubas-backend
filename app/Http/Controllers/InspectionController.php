@@ -371,6 +371,170 @@ class InspectionController extends Controller
         ]);
     }
 
+    public function getFilteredInspectionsByInspector(Request $request)
+    {
+        // Base query with relationships
+        $query = Inspection::with([
+            'business',
+            'business.owner',
+            'business.address',
+            'inspector',
+            'violations.violationDetails',
+        ]);
+
+        // Apply inspector_id filter
+        if ($request->filled('inspector_id')) {
+            $query->where('inspector_id', $request->inspector_id);
+        }
+
+        // Apply filterType logic for violations
+        $filterType = $request->input('filterType');
+        if ($filterType) {
+            if ($filterType === 'overdue') {
+                // For overdue, sort by due_date ascending (oldest due dates first)
+                $query->whereHas('violations', function ($q) {
+                    $q->where('status', 'pending')
+                        ->whereDate('due_date', '<', now()->toDateString());
+                })
+                    ->orderBy(
+                        Violation::select('due_date')
+                            ->whereColumn('violations.inspection_id', 'inspections.inspection_id')
+                            ->orderBy('due_date', 'asc')
+                            ->limit(1)
+                    );
+            } else if ($filterType === 'upcoming_dues') {
+                // For upcoming dues, include today and next 3 days
+                $today = now()->startOfDay();
+                $query->whereHas('violations', function ($q) use ($today) {
+                    $q->where('status', 'pending')
+                        ->whereDate('due_date', '>=', $today)
+                        ->whereDate('due_date', '<=', $today->copy()->addDays(3));
+                })
+                    ->orderBy(
+                        Violation::select('due_date')
+                            ->whereColumn('violations.inspection_id', 'inspections.inspection_id')
+                            ->where('status', 'pending')
+                            ->whereDate('due_date', '>=', $today)
+                            ->whereDate('due_date', '<=', $today->copy()->addDays(3))
+                            ->orderBy('due_date', 'asc')
+                            ->limit(1)
+                    );
+            } else if ($filterType === 'resolved') {
+                $query->whereHas('violations', function ($q) {
+                    $q->where('status', 'resolved');
+                });
+            }
+        } else {
+            // Default: Only include inspections that have violations
+            $query->whereHas('violations');
+            // Default sorting by created_at
+            $sortOrder = $request->input('sort_order', 'desc');
+            $query->orderBy('created_at', $sortOrder);
+        }
+
+        // Apply business_name filter
+        if ($request->filled('business_name')) {
+            $query->whereHas('business', function ($q) use ($request) {
+                $q->where('business_name', 'LIKE', '%' . $request->business_name . '%');
+            });
+        }
+
+        // Apply receipt filter
+        if ($request->filled('receipt')) {
+            $query->whereHas('violations', function ($q) use ($request) {
+                $q->where('violation_receipt_no', 'LIKE', '%' . $request->receipt . '%');
+            });
+        }
+
+        // Pagination
+        $perPage = 20;
+        $page = $request->input('page', 1);
+        $inspections = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Transform the results
+        $inspections->getCollection()->transform(function ($inspection) use ($filterType) {
+            $violations = $inspection->violations->map(function ($violation) {
+                $dueDate = \Carbon\Carbon::parse($violation->due_date);
+                $now = now()->startOfDay(); // Use start of day for consistent comparison
+
+                // Calculate days until due for upcoming dues
+                $daysUntilDue = $violation->status === 'pending' && $violation->due_date
+                    ? $now->diffInDays($dueDate, false)
+                    : null;
+
+                // Calculate overdue days for overdue violations
+                $overdueDays = $violation->status === 'pending' && $violation->due_date && $dueDate < $now
+                    ? $now->diffInDays($dueDate, false)
+                    : null;
+
+                // Check if notification exists for this violation
+                $notificationExists = \App\Models\Notification::where('violation_id', $violation->violation_id)->exists();
+
+                return [
+                    'violation_id' => $violation->violation_id,
+                    'violation_receipt_no' => $violation->violation_receipt_no,
+                    'violation_date' => $violation->violation_date,
+                    'due_date' => $violation->due_date,
+                    'status' => $violation->status,
+                    'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
+                    'days_until_due' => $daysUntilDue >= 0 ? $daysUntilDue : null,
+                    'days_overdue' => $overdueDays < 0 ? abs($overdueDays) : null,
+                    'notification_status' => $notificationExists ?
+                        'Business owner notified' :
+                        'SMS was not sent to Business Owner. Please take immediate action'
+                ];
+            });
+
+            // Sort violations based on filter type
+            if ($filterType === 'overdue') {
+                $violations = $violations->sortByDesc('days_overdue')->values();
+            } else if ($filterType === 'upcoming_dues') {
+                $violations = $violations
+                    ->filter(function ($violation) {
+                        return $violation['days_until_due'] !== null && $violation['days_until_due'] <= 3;
+                    })
+                    ->sortBy('days_until_due')
+                    ->values();
+            }
+
+            return [
+                'inspection_id' => $inspection->inspection_id,
+                'inspection_date' => $inspection->inspection_date,
+                'type_of_inspection' => $inspection->type_of_inspection,
+                'image_url' => $inspection->image_url,
+                'business' => [
+                    'business_id' => $inspection->business->business_id,
+                    'business_name' => $inspection->business->business_name,
+                    'business_permit' => $inspection->business->business_permit,
+                    'status' => $inspection->business->status,
+                    'address' => [
+                        'street_address' => $inspection->business->address->street,
+                        'city' => $inspection->business->address->city,
+                        'postal_code' => $inspection->business->address->zip,
+                    ],
+                    'owner' => [
+                        'first_name' => $inspection->business->owner->first_name,
+                        'last_name' => $inspection->business->owner->last_name,
+                        'email' => $inspection->business->owner->email,
+                        'phone_number' => $inspection->business->owner->phone_number,
+                    ],
+                ],
+                'violations' => $violations,
+                'inspector' => [
+                    'inspector_id' => $inspection->inspector->inspector_id,
+                    'first_name' => $inspection->inspector->first_name,
+                    'last_name' => $inspection->inspector->last_name,
+                    'email' => $inspection->inspector->email,
+                ],
+            ];
+        });
+
+        // Return the response
+        return response()->json([
+            'status' => 200,
+            'inspections' => $inspections,
+        ]);
+    }
 
     // todo work on this later (admin power)
     public function deleteInspection(Request $request)
