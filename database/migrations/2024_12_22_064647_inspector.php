@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->string('first_name'); // Inspector's first name
             $table->string('last_name'); // Inspector's last name
             $table->string('password'); // Inspector's password (hashed)
-
+            $table->string('image_url')->nullable();
             // Timestamps for created_at and updated_at
             $table->timestamps();
 

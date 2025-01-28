@@ -372,7 +372,6 @@ class InspectionController extends Controller
     }
 
 
-
     // todo work on this later (admin power)
     public function deleteInspection(Request $request)
     {

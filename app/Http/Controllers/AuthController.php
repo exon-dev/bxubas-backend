@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+
 
 class AuthController extends Controller
 {
@@ -112,5 +115,77 @@ class AuthController extends Controller
         DB::table('password_reset_tokens')->where('email', $decryptedEmail)->delete();
 
         return response()->json(['message' => 'Password reset successfully!']);
+    }
+
+    /**
+     * Reset password for logged-in user
+     */
+    public function resetLoggedInPassword(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'current_password' => 'required|string|min:8',
+                'new_password' => 'required|string|min:8|different:current_password',
+                'confirm_password' => 'required|string|same:new_password'
+            ], [
+                'email.required' => 'The email field is required.',
+                'email.email' => 'The email must be a valid email address.',
+                'current_password.required' => 'The current password field is required.',
+                'current_password.min' => 'The current password must be at least 8 characters.',
+                'new_password.required' => 'The new password field is required.',
+                'new_password.min' => 'The new password must be at least 8 characters.',
+                'new_password.different' => 'The new password and current password must be different.',
+                'confirm_password.required' => 'The confirm password field is required.',
+                'confirm_password.same' => 'The confirm password and new password must match.'
+            ]);
+
+            // Check in Admin table
+            $admin = Admin::where('email', $request->email)->first();
+
+            // Check in Inspector table if not found in Admin
+            $inspector = !$admin ? Inspector::where('email', $request->email)->first() : null;
+
+            // If user not found in either table
+            if (!$admin && !$inspector) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'User not found with this email.'
+                ], 404);
+            }
+
+            $user = $admin ?: $inspector;
+
+            // Verify current password
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'status' => 400,
+                    'message' => 'Current password is incorrect.'
+                ], 400);
+            }
+
+            // Update password
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Password updated successfully.'
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 422,
+                'message' => $e->getMessage(),
+                'errors' => $e->errors()    
+            ], 422);
+        } catch (\Exception $e) {
+            Log::info($e);
+            return response()->json([
+                'status' => 500,
+                'message' => 'Error updating password.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

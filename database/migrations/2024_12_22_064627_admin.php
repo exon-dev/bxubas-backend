@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->string('first_name'); // First Name
             $table->string('last_name'); // Last Name
             $table->string('password'); // Password
+            $table->string('image_url')->nullable();
             $table->timestamps(); // Adds created_at and updated_at fields
         });
     }

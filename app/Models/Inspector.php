@@ -16,7 +16,7 @@ class Inspector extends Authenticatable // Extend Authenticatable
 
     protected $hidden = ['password'];
 
-    protected $fillable = ['admin_id', 'email', 'first_name', 'last_name', 'password'];
+    protected $fillable = ['admin_id', 'email', 'first_name', 'last_name', 'password', 'image_url'];
 
     protected static function booted()
     {

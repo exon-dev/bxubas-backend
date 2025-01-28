@@ -34,5 +34,6 @@ class Admin extends Authenticatable // Extend Authenticatable
         'last_name',
         'email',
         'password',
+        'image_url',
     ];
 }
