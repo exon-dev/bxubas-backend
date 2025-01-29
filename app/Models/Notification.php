@@ -10,7 +10,14 @@ class Notification extends Model
     protected $primaryKey = 'notification_id';
     public $timestamps = true;
 
-    protected $fillable = ['title', 'content', 'violator_id', 'violation_id'];
+    protected $fillable = [
+        'title',
+        'content',
+        'violator_id',
+        'violation_id',
+        'status',
+        'error_message'
+    ];
 
     public function violator()
     {

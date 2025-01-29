@@ -77,38 +77,38 @@ class SendViolationReminder extends Command
                 . "Best regards,\n"
                 . "Business Permit and Licensing Department";
 
-            // Send SMS notification and capture the result
+            // Try to send SMS
             $notificationResult = $notificationController->sendNotification(new Request([
                 'phone' => $violation->phone_number,
                 'message' => $message,
             ]));
 
-            // Log the complete notification attempt
-            Log::info('SMS Notification Attempt:', [
+            // Always create notification record with appropriate status
+            DB::table('notifications')->insert([
+                'title' => 'Upcoming Due Date Reminder',
+                'content' => $message,
                 'violator_id' => $violation->business_owner_id,
-                'phone' => $violation->phone_number,
-                'response' => $notificationResult,
+                'violation_id' => $violation->violation_id,
+                'type' => 'reminder',
+                'status' => $notificationResult['status'] === 200 ? 'sent' : 'failed',
+                'error_message' => $notificationResult['status'] === 200 ? null : ($notificationResult['message'] ?? 'Unknown error'),
+                'created_at' => now(),
+                'updated_at' => now()
             ]);
 
             if ($notificationResult['status'] === 200) {
-                // Create a new notification record with specific title
-                DB::table('notifications')->insert([
-                    'title' => 'Upcoming Due Date Reminder', // This distinguishes it from the initial notification
-                    'content' => $message,
-                    'violator_id' => $violation->violator_id,
-                    'violation_id' => $violation->violation_id,
-                    'type' => 'reminder', // You might need to add this column to your notifications table
-                    'timestamps' => now(),
-                ]);
-
                 $this->info("✓ Reminder SMS sent successfully to {$violation->phone_number}");
             } else {
-                $this->error("✗ Failed to send SMS to {$violation->phone_number}: " . ($notificationResult['message'] ?? 'Unknown error'));
-                Log::error('SMS Sending Failed:', [
-                    'phone' => $violation->phone_number,
-                    'error' => $notificationResult['message'] ?? 'Unknown error'
-                ]);
+                $this->error("✗ Failed to send reminder SMS to {$violation->phone_number}: " . ($notificationResult['message'] ?? 'Unknown error'));
             }
+
+            // Log the attempt regardless of outcome
+        Log::info('Reminder attempt:', [
+            'violation_id' => $violation->violation_id,
+                'phone' => $violation->phone_number,
+                'status' => $notificationResult['status'] === 200 ? 'sent' : 'failed',
+                'error' => $notificationResult['status'] === 200 ? null : ($notificationResult['message'] ?? 'Unknown error')
+            ]);
         }
 
         Log::info('Violation reminders processed successfully.');

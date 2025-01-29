@@ -172,22 +172,30 @@ class InspectorController extends Controller
                     // Generate and send the violation notification
                     $notificationResponse = $this->sendViolationNotification($businessOwner, $business, $violation);
 
-                    // Create notification record only if SMS was successful
-                    if (isset($notificationResponse['status']) && $notificationResponse['status'] == 200) {
-                        Notification::create([
-                            'title' => 'Violation Notice',
-                            'content' => $notificationResponse['message'] ?? 'SMS notification sent successfully.',
-                            'violator_id' => $businessOwner->business_owner_id,
-                            'violation_id' => $violation->violation_id,
-                        ]);
-                    }
+                    // Always create notification record with appropriate status
+                    Notification::create([
+                        'title' => 'Violation Notice',
+                        'content' => $notificationResponse['message'] ?? 'SMS notification attempted.',
+                        'violator_id' => $businessOwner->business_owner_id,
+                        'violation_id' => $violation->violation_id,
+                        'status' => $notificationResponse['status'] === 200 ? 'sent' : 'failed',
+                        'error_message' => $notificationResponse['status'] === 200 ? null : ($notificationResponse['message'] ?? 'Unknown error')
+                    ]);
+
+                    // Log the notification attempt
+                    Log::info('Violation notification attempt:', [
+                        'violation_id' => $violation->violation_id,
+                        'phone' => $businessOwner->phone_number,
+                        'status' => $notificationResponse['status'] === 200 ? 'sent' : 'failed',
+                        'error' => $notificationResponse['status'] === 200 ? null : ($notificationResponse['message'] ?? 'Unknown error')
+                    ]);
                 }
 
                 DB::commit();
 
                 // Prepare the response message
                 $responseMessage = 'Inspection added successfully!';
-                if ($hasViolations && isset($notificationResponse['status']) &&     $notificationResponse['status'] != 200) {
+                if ($hasViolations && isset($notificationResponse['status']) && $notificationResponse['status'] != 200) {
                     $responseMessage .= ' However, SMS notification failed: ' . ($notificationResponse['message'] ?? 'Unknown error from SMS API');
                 }
 

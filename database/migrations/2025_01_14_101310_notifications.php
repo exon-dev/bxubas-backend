@@ -15,6 +15,8 @@ return new class extends Migration {
             $table->string('type')->default('initial');
             $table->string('title'); // Notification title
             $table->text('content'); // Notification content
+            $table->string('status');  // Can be 'pending', 'sent', 'failed'
+            $table->text('error_message')->nullable();
             $table->char('violator_id', 36); // Foreign key to business_owners table
             $table->char('violation_id', 36); // Foreign key to violations table
             $table->timestamps(); // Adds created_at and updated_at columns
