@@ -187,7 +187,7 @@ class InspectorController extends Controller
 
                 // Prepare the response message
                 $responseMessage = 'Inspection added successfully!';
-                if ($hasViolations && isset($notificationResponse['status']) && $notificationResponse['status'] != 200) {
+                if ($hasViolations && isset($notificationResponse['status']) &&     $notificationResponse['status'] != 200) {
                     $responseMessage .= ' However, SMS notification failed: ' . ($notificationResponse['message'] ?? 'Unknown error from SMS API');
                 }
 

@@ -165,51 +165,49 @@ class NotificationController extends Controller
     }
 
 
+    // /**
+    //  * Send <notificati></notificati>ons for inspections almost due.
+    //  */
+    // public function inspectionAlmostDueNotif()
+    // {
+    //     $thresholdDate = Carbon::now()->addDays(3); // Define the threshold as 3 days from today.
 
+    //     $violations = Inspection::with('violations')
+    //         ->whereHas('violations', function ($query) use ($thresholdDate) {
+    //             $query->where('due_date', '<=', $thresholdDate)
+    //                 ->where('status', 'pending');
+    //         })
+    //         ->get();
 
-    /**
-     * Send notifications for inspections almost due.
-     */
-    public function inspectionAlmostDueNotif()
-    {
-        $thresholdDate = Carbon::now()->addDays(3); // Define the threshold as 3 days from today.
+    //     foreach ($violations as $inspection) {
+    //         $businessOwner = $inspection->business->owner;
 
-        $violations = Inspection::with('violations')
-            ->whereHas('violations', function ($query) use ($thresholdDate) {
-                $query->where('due_date', '<=', $thresholdDate)
-                    ->where('status', 'pending');
-            })
-            ->get();
+    //         // Check if a notification has already been sent
+    //         $alreadyNotified = Notification::where('violation_id', $inspection->violations->first()->violation_id)
+    //             ->exists();
 
-        foreach ($violations as $inspection) {
-            $businessOwner = $inspection->business->owner;
+    //         if (!$alreadyNotified) {
+    //             $message = "Dear {$businessOwner->first_name}, your business '{$inspection->business->business_name}' has a pending violation due on {$inspection->violations->first()->due_date}. Please address it promptly.";
 
-            // Check if a notification has already been sent
-            $alreadyNotified = Notification::where('violation_id', $inspection->violations->first()->violation_id)
-                ->exists();
+    //             $this->sendNotification(new Request([
+    //                 'phone' => $businessOwner->phone_number,
+    //                 'message' => $message,
+    //             ]));
 
-            if (!$alreadyNotified) {
-                $message = "Dear {$businessOwner->first_name}, your business '{$inspection->business->business_name}' has a pending violation due on {$inspection->violations->first()->due_date}. Please address it promptly.";
+    //             Notification::create([
+    //                 'title' => 'Inspection Due Reminder',
+    //                 'content' => $message,
+    //                 'violator_id' => $businessOwner->business_owner_id,
+    //                 'violation_id' => $inspection->violations->first()->violation_id,
+    //             ]);
 
-                $this->sendNotification(new Request([
-                    'phone' => $businessOwner->phone_number,
-                    'message' => $message,
-                ]));
+    //             Log::info("Inspection reminder sent to {$businessOwner->phone_number}");
+    //         }
+    //     }
 
-                Notification::create([
-                    'title' => 'Inspection Due Reminder',
-                    'content' => $message,
-                    'violator_id' => $businessOwner->business_owner_id,
-                    'violation_id' => $inspection->violations->first()->violation_id,
-                ]);
-
-                Log::info("Inspection reminder sent to {$businessOwner->phone_number}");
-            }
-        }
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Inspection due notifications processed successfully.',
-        ]);
-    }
+    //     return response()->json([
+    //         'status' => 200,
+    //         'message' => 'Inspection due notifications processed successfully.',
+    //     ]);
+    // }
 }

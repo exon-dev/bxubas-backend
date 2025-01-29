@@ -12,6 +12,7 @@ return new class extends Migration {
     {
         Schema::create('notifications', function (Blueprint $table) {
             $table->id('notification_id'); // Primary key
+            $table->string('type')->default('initial');
             $table->string('title'); // Notification title
             $table->text('content'); // Notification content
             $table->char('violator_id', 36); // Foreign key to business_owners table
