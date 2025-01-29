@@ -24,7 +24,9 @@ class NotificationController extends Controller
             $page = $request->input('page', 1);
             $perPage = $request->input('per_page', 15);
             $sortOrder = $request->input('sort_order', 'desc');
-            $status = $request->input('status');
+            $violationStatus = $request->input('violation_status');
+            $notificationType = $request->input('type'); // 'initial' or 'reminder'
+            $notificationStatus = $request->input('notification_status'); // 'pending', 'sent', or 'failed'
             $search = $request->input('search');
 
             // Start building the query
@@ -32,9 +34,19 @@ class NotificationController extends Controller
                 ->join('violations', 'notifications.violation_id', '=', 'violations.violation_id')
                 ->select('notifications.*');
 
-            // Apply status filter if provided
-            if ($status && $status !== 'all') {
-                $query->where('violations.status', $status);
+            // Apply violation status filter if provided
+            if ($violationStatus && $violationStatus !== 'all') {
+                $query->where('violations.status', $violationStatus);
+            }
+
+            // Apply notification type filter if provided
+            if ($notificationType && $notificationType !== 'all') {
+                $query->where('notifications.type', $notificationType);
+            }
+
+            // Apply notification status filter if provided
+            if ($notificationStatus && $notificationStatus !== 'all') {
+                $query->where('notifications.status', $notificationStatus);
             }
 
             // Apply search filter if provided
@@ -52,7 +64,7 @@ class NotificationController extends Controller
             }
 
             // Apply sorting
-            $query->orderBy('violations.violation_date', $sortOrder);
+            $query->orderBy('notifications.created_at', $sortOrder);
 
             // Paginate the results
             $notifications = $query->paginate($perPage);
@@ -61,8 +73,12 @@ class NotificationController extends Controller
             $transformedData = $notifications->through(function ($notification) {
                 return [
                     'notification_id' => $notification->notification_id,
+                    'type' => $notification->type,
                     'title' => $notification->title,
                     'content' => $notification->content,
+                    'status' => $notification->status,
+                    'error_message' => $notification->error_message,
+                    'created_at' => $notification->created_at,
                     'violator' => [
                         'violator_id' => $notification->violator->business_owner_id,
                         'first_name' => $notification->violator->first_name,
