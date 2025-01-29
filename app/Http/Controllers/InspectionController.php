@@ -109,13 +109,44 @@ class InspectionController extends Controller
                     ]
                 ],
                 'violations' => $inspection->business->violations->map(function ($violation) {
+                    // Check notifications for this violation
+                    $notifications = \App\Models\Notification::where('violation_id', $violation->violation_id)
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+
+                    // Get initial notice status
+                    $initialNotice = $notifications->where('title', 'Violation Notice')->first();
+                    $initialNoticeStatus = $initialNotice ?
+                        ($initialNotice->status === 'sent' ?
+                            'Initial notice sent successfully' :
+                            'Initial SMS failed: ' . ($initialNotice->error_message ?? 'Unknown error')) :
+                        'No initial notice sent';
+
+                    // Get reminder status
+                    $reminder = $notifications->where('title', 'Upcoming Due Date Reminder')->first();
+                    $reminderStatus = $reminder ?
+                        ($reminder->status === 'sent' ?
+                            'Reminder sent successfully' :
+                            'Reminder SMS failed: ' . ($reminder->error_message ?? 'Unknown error')) :
+                        'No reminder sent yet';
+
                     return [
                         'violation_id' => $violation->violation_id,
-                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'), // Collect all violation details
+                        'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
                         'violation_receipt_no' => $violation->violation_receipt_no,
                         'violation_date' => $violation->violation_date,
                         'due_date' => $violation->due_date,
-                        'status' => $violation->status
+                        'status' => $violation->status,
+                        'notifications' => [
+                            'initial_notice' => [
+                                'status' => $initialNotice ? $initialNotice->status : null,
+                                'message' => $initialNoticeStatus
+                            ],
+                            'reminder' => [
+                                'status' => $reminder ? $reminder->status : null,
+                                'message' => $reminderStatus
+                            ]
+                        ]
                     ];
                 })
             ];
@@ -150,8 +181,26 @@ class InspectionController extends Controller
                 return $violation->inspection_id === $inspection->inspection_id;
             })
             ->map(function ($violation) {
-                // Check if notification exists for this violation
-                $notificationExists = \App\Models\Notification::where('violation_id', $violation->violation_id)->exists();
+                // Check notifications for this violation
+                $notifications = \App\Models\Notification::where('violation_id', $violation->violation_id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                // Get initial notice status
+                $initialNotice = $notifications->where('title', 'Violation Notice')->first();
+                $initialNoticeStatus = $initialNotice ?
+                    ($initialNotice->status === 'sent' ?
+                        'Initial notice sent successfully' :
+                        'Initial SMS failed: ' . ($initialNotice->error_message ?? 'Unknown error')) :
+                    'No initial notice sent';
+
+                // Get reminder status
+                $reminder = $notifications->where('title', 'Upcoming Due Date Reminder')->first();
+                $reminderStatus = $reminder ?
+                    ($reminder->status === 'sent' ?
+                        'Reminder sent successfully' :
+                        'Reminder SMS failed: ' . ($reminder->error_message ?? 'Unknown error')) :
+                    'No reminder sent yet';
 
                 return [
                     'violation_id' => $violation->violation_id,
@@ -160,9 +209,16 @@ class InspectionController extends Controller
                     'violation_date' => $violation->violation_date,
                     'due_date' => $violation->due_date,
                     'status' => $violation->status,
-                    'notification_status' => $notificationExists ?
-                        'Business owner notified' :
-                        'SMS was not sent to Business Owner. Please take immediate action'
+                    'notifications' => [
+                        'initial_notice' => [
+                            'status' => $initialNotice ? $initialNotice->status : null,
+                            'message' => $initialNoticeStatus
+                        ],
+                        'reminder' => [
+                            'status' => $reminder ? $reminder->status : null,
+                            'message' => $reminderStatus
+                        ]
+                    ]
                 ];
             });
 
@@ -302,8 +358,26 @@ class InspectionController extends Controller
                     ? $now->diffInDays($dueDate, false)
                     : null;
 
-                // Check if notification exists for this violation
-                $notificationExists = \App\Models\Notification::where('violation_id', $violation->violation_id)->exists();
+                // Check notifications for this violation
+                $notifications = \App\Models\Notification::where('violation_id', $violation->violation_id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                // Get initial notice status
+                $initialNotice = $notifications->where('title', 'Violation Notice')->first();
+                $initialNoticeStatus = $initialNotice ?
+                    ($initialNotice->status === 'sent' ?
+                        'Initial notice sent successfully' :
+                        'Initial SMS failed: ' . ($initialNotice->error_message ?? 'Unknown error')) :
+                    'No initial notice sent';
+
+                // Get reminder status
+                $reminder = $notifications->where('title', 'Upcoming Due Date Reminder')->first();
+                $reminderStatus = $reminder ?
+                    ($reminder->status === 'sent' ?
+                        'Reminder sent successfully' :
+                        'Reminder SMS failed: ' . ($reminder->error_message ?? 'Unknown error')) :
+                    'No reminder sent yet';
 
                 return [
                     'violation_id' => $violation->violation_id,
@@ -314,9 +388,16 @@ class InspectionController extends Controller
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
                     'days_until_due' => $daysUntilDue >= 0 ? $daysUntilDue : null,
                     'days_overdue' => $overdueDays < 0 ? abs($overdueDays) : null,
-                    'notification_status' => $notificationExists ?
-                        'Business owner notified' :
-                        'SMS was not sent to Business Owner. Please take immediate action'
+                    'notifications' => [
+                        'initial_notice' => [
+                            'status' => $initialNotice ? $initialNotice->status : null,
+                            'message' => $initialNoticeStatus
+                        ],
+                        'reminder' => [
+                            'status' => $reminder ? $reminder->status : null,
+                            'message' => $reminderStatus
+                        ]
+                    ]
                 ];
             });
 
@@ -467,8 +548,26 @@ class InspectionController extends Controller
                     ? $now->diffInDays($dueDate, false)
                     : null;
 
-                // Check if notification exists for this violation
-                $notificationExists = \App\Models\Notification::where('violation_id', $violation->violation_id)->exists();
+                // Check notifications for this violation
+                $notifications = \App\Models\Notification::where('violation_id', $violation->violation_id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                // Get initial notice status
+                $initialNotice = $notifications->where('title', 'Violation Notice')->first();
+                $initialNoticeStatus = $initialNotice ?
+                    ($initialNotice->status === 'sent' ?
+                        'Initial notice sent successfully' :
+                        'Initial SMS failed: ' . ($initialNotice->error_message ?? 'Unknown error')) :
+                    'No initial notice sent';
+
+                // Get reminder status
+                $reminder = $notifications->where('title', 'Upcoming Due Date Reminder')->first();
+                $reminderStatus = $reminder ?
+                    ($reminder->status === 'sent' ?
+                        'Reminder sent successfully' :
+                        'Reminder SMS failed: ' . ($reminder->error_message ?? 'Unknown error')) :
+                    'No reminder sent yet';
 
                 return [
                     'violation_id' => $violation->violation_id,
@@ -479,9 +578,16 @@ class InspectionController extends Controller
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
                     'days_until_due' => $daysUntilDue >= 0 ? $daysUntilDue : null,
                     'days_overdue' => $overdueDays < 0 ? abs($overdueDays) : null,
-                    'notification_status' => $notificationExists ?
-                        'Business owner notified' :
-                        'SMS was not sent to Business Owner. Please take immediate action'
+                    'notifications' => [
+                        'initial_notice' => [
+                            'status' => $initialNotice ? $initialNotice->status : null,
+                            'message' => $initialNoticeStatus
+                        ],
+                        'reminder' => [
+                            'status' => $reminder ? $reminder->status : null,
+                            'message' => $reminderStatus
+                        ]
+                    ]
                 ];
             });
 
