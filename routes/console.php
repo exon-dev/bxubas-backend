@@ -10,4 +10,4 @@ Artisan::command('inspire', function () {
 
 Artisan::command('send-violation-reminder', function () {
     $this->info('Sending violation reminder to business owners less than 3 days from due date');
-})->purpose('Send violation reminders to business reminders')->everyMinute();
+})->purpose('Send violation reminders to business reminders')->daily();
