@@ -1,0 +1,8 @@
+/data
+node_modules
+vendor
+*.log
+*.swp
+*.DS_Store
+*.git
+*.gitignore

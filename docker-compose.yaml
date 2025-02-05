@@ -1,0 +1,52 @@
+version: "3"
+networks:
+  application:
+    driver: bridge
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - 8000:8000
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysqldb
+      - DB_PORT=3306
+      - DB_DATABASE=bxubas
+      - DB_USERNAME=root
+      - DB_PASSWORD=root  # Make sure this matches MYSQL_PASSWORD in db service
+    networks:
+      - application
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        composer install
+        php artisan migrate
+        php artisan serve --host=0.0.0.0 --port=8000
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=bxubas
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root  # Ensure this matches the DB_PASSWORD in app service
+    networks:
+      - application
+    container_name: mysqldb
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_data:
