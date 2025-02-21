@@ -88,12 +88,13 @@ class InspectionController extends Controller
                 'created_at' => $inspection->created_at,
                 'updated_at' => $inspection->updated_at,
                 'notice_status' => $inspection->with_violations && $inspection->business->violations->isNotEmpty() ? ($notificationStatus ? 'notice sent' : 'notice not sent') : null,
-                'inspector' => [
+                'inspector' => $inspection->inspector ? [
                     'inspector_id' => $inspection->inspector->inspector_id,
                     'email' => $inspection->inspector->email,
                     'first_name' => $inspection->inspector->first_name,
                     'last_name' => $inspection->inspector->last_name
-                ],
+                ] : 'Inspector Deleted',
+
                 'business' => [
                     'business_id' => $inspection->business->business_id,
                     'business_permit' => $inspection->business->business_permit,
@@ -233,12 +234,13 @@ class InspectionController extends Controller
             'inspector_id' => $inspection->inspector_id,
             'created_at' => $inspection->created_at,
             'updated_at' => $inspection->updated_at,
-            'inspector' => [
+            'inspector' => $inspection->inspector ? [
                 'inspector_id' => $inspection->inspector->inspector_id,
                 'email' => $inspection->inspector->email,
                 'first_name' => $inspection->inspector->first_name,
-                'last_name' => $inspection->inspector->last_name,
-            ],
+                'last_name' => $inspection->inspector->last_name
+            ] : 'Inspector Deleted',
+
             'business' => [
                 'business_id' => $inspection->business->business_id,
                 'business_permit' => $inspection->business->business_permit,
@@ -436,12 +438,13 @@ class InspectionController extends Controller
                     ],
                 ],
                 'violations' => $violations,
-                'inspector' => [
+                'inspector' => $inspection->inspector ? [
                     'inspector_id' => $inspection->inspector->inspector_id,
-                    'first_name' => $inspection->inspector->first_name,
-                    'last_name' => $inspection->inspector->last_name,
                     'email' => $inspection->inspector->email,
-                ],
+                    'first_name' => $inspection->inspector->first_name,
+                    'last_name' => $inspection->inspector->last_name
+                ] : 'Inspector Deleted',
+
             ];
         });
 
@@ -626,12 +629,13 @@ class InspectionController extends Controller
                     ],
                 ],
                 'violations' => $violations,
-                'inspector' => [
+                'inspector' => $inspection->inspector ? [
                     'inspector_id' => $inspection->inspector->inspector_id,
-                    'first_name' => $inspection->inspector->first_name,
-                    'last_name' => $inspection->inspector->last_name,
                     'email' => $inspection->inspector->email,
-                ],
+                    'first_name' => $inspection->inspector->first_name,
+                    'last_name' => $inspection->inspector->last_name
+                ] : 'Inspector Deleted',
+
             ];
         });
 

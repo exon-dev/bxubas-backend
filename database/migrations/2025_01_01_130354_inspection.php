@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->string('type_of_inspection'); // Type of inspection
             $table->boolean('with_violations'); // Whether the inspection had violations
             $table->char('business_id', 36); // Foreign key to businesses table
-            $table->char('inspector_id', 36); // Foreign key to inspectors table
+            $table->char('inspector_id', 36)->nullable(); // Foreign key to inspectors table
             $table->timestamps(); // Adds created_at and updated_at columns
             $table->string('image_url')->nullable(); // Optional image URL
             // Define foreign key constraints
@@ -27,7 +27,8 @@ return new class extends Migration {
             $table->foreign('inspector_id')
                 ->references('inspector_id')
                 ->on('inspectors')
-                ->onDelete('cascade');
+                ->onDelete('set null');
+
         });
     }
 

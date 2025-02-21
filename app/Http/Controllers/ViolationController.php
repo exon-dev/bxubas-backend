@@ -53,12 +53,12 @@ class ViolationController extends Controller
                 'created_at' => $inspection->created_at,
                 'updated_at' => $inspection->updated_at,
                 'image_url' => $inspection->image_url, // Moved here from business
-                'inspector' => [
+                'inspector' => $inspection->inspector ? [
                     'inspector_id' => $inspection->inspector->inspector_id,
                     'email' => $inspection->inspector->email,
                     'first_name' => $inspection->inspector->first_name,
                     'last_name' => $inspection->inspector->last_name
-                ],
+                ] : 'Inspector Deleted',
                 'business' => [
                     'business_id' => $inspection->business->business_id,
                     'business_permit' => $inspection->business->business_permit,

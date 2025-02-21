@@ -18,7 +18,10 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($inspection) {
                 return [
-                    'inspector_name' => $inspection->inspector->first_name . ' ' . $inspection->inspector->last_name,
+                    'inspector_name' => $inspection->inspector
+                        ? trim($inspection->inspector->first_name . ' ' . $inspection->inspector->last_name)
+                        : 'Inspector Deleted',
+
                     'inspection_date' => $inspection->inspection_date,
                     'type_of_inspection' => $inspection->type_of_inspection,
                     'violations' => $inspection->violations->map(function ($violation) {
