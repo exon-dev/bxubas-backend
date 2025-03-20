@@ -16,7 +16,7 @@ return new class extends Migration {
 
             // Foreign key referencing the admins table
             $table->char('admin_id', 36);
-
+            $table->char('government_id')->unique();
             // Additional fields
             $table->string('email')->unique(); // Inspector's unique email
             $table->string('first_name'); // Inspector's first name

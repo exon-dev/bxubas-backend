@@ -80,6 +80,7 @@ class AdminController extends Controller
         $data = $request->validate([
             'first_name' => 'required',
             'last_name' => 'required',
+            'government_id' => 'required|unique:inspectors',
             'email' => 'required|email',
         ]);
 
