@@ -63,7 +63,12 @@ class AuthController extends Controller
         );
 
         // Create reset link with plain token and encrypted email
-        $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
+        // localhost
+        // $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
+
+        // deployed version
+
+        $resetLink = url('https://bxubas-backend-app.onrender.com/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
 
         // Prepare the email message
         $emailMessage = 'You have requested to reset your password. Please click the link below to reset your password:';

@@ -10,37 +10,12 @@ services:
     container_name: backend
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
-    depends_on:
-      - db
     environment:
       - DB_CONNECTION=mysql
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=bxubas
-      - DB_USERNAME=bxubas_user
-      - DB_PASSWORD=bxubas_pass
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
     networks:
       - application
-
-  db:
-    image: mysql:8.0
-    container_name: mysqldb
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    environment:
-      - MYSQL_DATABASE=bxubas
-      - MYSQL_USER=bxubas_user
-      - MYSQL_PASSWORD=bxubas_pass
-      - MYSQL_ROOT_PASSWORD=root
-    networks:
-      - application
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  mysql_data:

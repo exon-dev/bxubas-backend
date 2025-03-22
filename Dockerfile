@@ -1,50 +1,28 @@
-FROM php:8.3.10-fpm
+FROM richarvey/nginx-php-fpm:3.1.6
 
-# Install necessary dependencies and MySQL client libraries
-RUN apt-get update -y && apt-get install -y \
-    openssl \
-    zip \
-    unzip \
-    git \
-    default-mysql-client \
-    libmariadb-dev \
-    nginx \
-    gettext-base \
-    && docker-php-ext-install pdo pdo_mysql
+WORKDIR /var/www/html
 
-# Install Composer
+COPY . .
+
+# Install composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Set working directory
-WORKDIR /app
-
-# Copy project files
-COPY . /app
-
-# Copy Nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy wait-for-db.sh and make it executable
-COPY wait-for-db.sh /app/wait-for-db.sh
-RUN chmod +x /app/wait-for-db.sh
-
-# Set up Laravel environment
-RUN cp .env.example .env
-
-# Install Composer dependencies
+# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Add environment variable for PORT with default
-ENV PORT=8080
+# Required environment variables
+ENV SKIP_COMPOSER 1
+ENV WEBROOT /var/www/html/public
+ENV PHP_ERRORS_STDERR 1
+ENV RUN_SCRIPTS 1
+ENV REAL_IP_HEADER 1
+ENV APP_ENV production
+ENV APP_DEBUG false
+ENV LOG_CHANNEL stderr
+ENV COMPOSER_ALLOW_SUPERUSER 1
 
-# Expose the port
-EXPOSE ${PORT}
+# Copy and run custom scripts
+COPY ./scripts/00-laravel-deploy.sh /var/scripts/
+RUN chmod -R 755 /var/scripts
 
-# Modified startup sequence
-CMD ["/bin/sh", "-c", "\
-    envsubst '$$PORT' < /etc/nginx/conf.d/default.conf > /etc/nginx/conf.d/default.conf.tmp && \
-    mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf && \
-    service nginx start && \
-    /app/wait-for-db.sh && \
-    php artisan migrate --force && \
-    php-fpm"]
+CMD ["/start.sh"]
