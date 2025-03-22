@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: bxubas-backend
+    env: php
+    plan: free
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+      php artisan migrate --force
+      php artisan storage:link
+    startCommand: |
+      php artisan serve --host=0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        fromService:
+          type: mysql
+          name: bxubas-db
+          property: host
+      - key: DB_DATABASE
+        value: bxubas
+      - key: DB_USERNAME
+        value: bxubas_user
+      - key: DB_PASSWORD
+        generateValue: true
+
+  - type: mysql
+    name: bxubas-db
+    plan: free
+    ipAllowList: []  # optional (enables all IPs)
