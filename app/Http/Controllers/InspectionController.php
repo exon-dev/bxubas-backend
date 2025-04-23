@@ -386,6 +386,7 @@ class InspectionController extends Controller
                     'violation_id' => $violation->violation_id,
                     'violation_receipt_no' => $violation->violation_receipt_no,
                     'violation_date' => $violation->violation_date,
+                    'violation_fee' => $violation->violation_fee,
                     'due_date' => $violation->due_date,
                     'status' => $violation->status,
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
