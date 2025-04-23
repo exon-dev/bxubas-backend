@@ -21,6 +21,7 @@ class Violation extends Model
         'violation_status',
         'business_id',
         'inspection_id',
+        'violation_fee',
     ];
 
     /**

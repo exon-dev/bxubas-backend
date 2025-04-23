@@ -61,9 +61,11 @@ class AuthController extends Controller
                 'created_at' => now(),
             ]
         );
-        
+
+        // $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
 
         $resetLink = env('FRONTEND_URL') . '/pages/auth/changePassword.html?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
+
 
         // Prepare the email message
         $emailMessage = 'You have requested to reset your password. Please click the link below to reset your password:';

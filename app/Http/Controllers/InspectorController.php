@@ -77,7 +77,7 @@ class InspectorController extends Controller
                 $validationRules['nature_of_violations'] = 'required|array|min:1';
                 $validationRules['nature_of_violations.*'] = 'required|string';
                 $validationRules['violation_receipt'] = 'required|string';
-                $validationRules['due_date'] = 'required|date';
+                $validationRules['violation_fee'] = 'required';
             }
 
             $data = $request->validate($validationRules);
@@ -154,12 +154,13 @@ class InspectorController extends Controller
 
                     $violation = Violation::create([
                         'violation_receipt_no' => $data['violation_receipt'],
-                        'due_date' => $data['due_date'],
+                        'due_date' => date('Y-m-d', strtotime('+7 days')),
                         'inspection_id' => $inspection->inspection_id,
                         'status' => 'pending',
                         'type_of_inspection' => $data['type_of_inspection'],
                         'violation_date' => now(),
                         'business_id' => $business->business_id,
+                        'violation_fee' => $data['violation_fee'],
                     ]);
 
                     foreach ($data['nature_of_violations'] as $natureOfViolation) {
