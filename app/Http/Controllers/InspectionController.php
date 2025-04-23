@@ -208,6 +208,7 @@ class InspectionController extends Controller
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation')->toArray(),
                     'violation_receipt_no' => $violation->violation_receipt_no,
                     'violation_date' => $violation->violation_date,
+                    'violation_fee' => $violation->violation_fee,
                     'due_date' => $violation->due_date,
                     'status' => $violation->status,
                     'notifications' => [
@@ -578,6 +579,7 @@ class InspectionController extends Controller
                     'violation_date' => $violation->violation_date,
                     'due_date' => $violation->due_date,
                     'status' => $violation->status,
+                    'violation_fee' => $violation->violation_fee,
                     'nature_of_violation' => $violation->violationDetails->pluck('nature_of_violation'),
                     'days_until_due' => $daysUntilDue >= 0 ? $daysUntilDue : null,
                     'days_overdue' => $overdueDays < 0 ? abs($overdueDays) : null,

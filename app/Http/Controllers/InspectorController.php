@@ -350,7 +350,7 @@ Business Permit and Licensing Department"
                 $validationRules['nature_of_violations'] = 'required|array';
                 $validationRules['nature_of_violations.*'] = 'required|string';
                 $validationRules['violation_receipt'] = 'required|string';
-                $validationRules['due_date'] = 'required|date';
+                $validationRules['violation_fee'] = 'required';
             }
 
             // Validate the request
@@ -426,8 +426,9 @@ Business Permit and Licensing Department"
                         ['inspection_id' => $inspection->inspection_id],
                         [
                             'violation_receipt_no' => $data['violation_receipt'],
-                            'due_date' => $data['due_date'],
+                            // 'due_date' => $data['due_date'],
                             'status' => 'pending',
+                            'violation_fee' => $data['violation_fee'],
                             'type_of_inspection' => $data['type_of_inspection'],
                             'violation_date' => now(),
                             'business_id' => $business->business_id,
