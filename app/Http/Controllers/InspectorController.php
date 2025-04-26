@@ -438,13 +438,13 @@ Business Permit and Licensing Department";
 
                 // Update business
                 $business = Business::updateOrCreate(
-                    ['business_permit' => $data['business_permit']],
+                    ['business_name' => $data['business_name']],
                     [
-                        'business_name' => $data['business_name'],
                         'status' => $data['business_status'],
                         'owner_id' => $businessOwner->business_owner_id,
                     ]
                 );
+
 
                 // Update address
                 $address = Address::updateOrCreate(
@@ -467,42 +467,52 @@ Business Permit and Licensing Department";
                 ]);
 
                 if ($hasViolations) {
-                    // Handle violations if present
-                    $violation = Violation::updateOrCreate(
-                        ['inspection_id' => $inspection->inspection_id],
-                        [
+                    // Find existing violation for this inspection
+                    $violation = Violation::where('inspection_id', $inspection->inspection_id)->first();
+
+                    if ($violation) {
+                        // Update the existing violation
+                        $violation->update([
                             'violation_receipt_no' => $data['violation_receipt'],
-                            // 'due_date' => $data['due_date'],
+                            'violation_fee' => $data['violation_fee'] ?? null, // Make sure it accepts null
                             'status' => 'pending',
-                            'violation_fee' => $data['violation_fee'],
                             'type_of_inspection' => $data['type_of_inspection'],
                             'violation_date' => now(),
                             'business_id' => $business->business_id,
-                        ]
-                    );
+                        ]);
+                    } else {
+                        // Create a new violation
+                        $violation = Violation::create([
+                            'inspection_id' => $inspection->inspection_id,
+                            'violation_receipt_no' => $data['violation_receipt'],
+                            'violation_fee' => $data['violation_fee'] ?? null,
+                            'status' => 'pending',
+                            'type_of_inspection' => $data['type_of_inspection'],
+                            'violation_date' => now(),
+                            'business_id' => $business->business_id,
+                        ]);
+                    }
 
-                    // Delete existing violation details
+                    // Now handle violation details
                     ViolationDetail::where('violation_id', $violation->violation_id)->delete();
 
-                    // Create new violation details
                     foreach ($data['nature_of_violations'] as $natureOfViolation) {
                         ViolationDetail::create([
                             'violation_id' => $violation->violation_id,
                             'nature_of_violation' => $natureOfViolation,
                         ]);
                     }
+
                 } else {
-                    // If `with_violations` is false, delete associated violations and details
+                    // No violations: delete if exists
                     $violation = Violation::where('inspection_id', $inspection->inspection_id)->first();
 
                     if ($violation) {
-                        // Delete violation details
                         ViolationDetail::where('violation_id', $violation->violation_id)->delete();
-
-                        // Delete the violation itself
                         $violation->delete();
                     }
                 }
+
 
                 // Commit transaction
                 DB::commit();
