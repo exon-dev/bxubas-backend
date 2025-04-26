@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\Notification;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Mail;
 
 class InspectorController extends Controller
 {
@@ -222,40 +223,55 @@ class InspectorController extends Controller
     {
         try {
             $phoneNumber = $businessOwner->phone_number;
-            Log::info('Formatted phone number for SMS notification', ['phone' => $phoneNumber]);
 
             // Format the due date using Carbon
             $dueDate = Carbon::parse($violation->due_date)->format('F j, Y');
 
             // Prepare the message
-            $message = "Subject: Notification from the Business Permit and Licensing Department
+            $message = "Subject: Reminder: Visit BPLD
 
-Dear {$businessOwner->first_name} {$businessOwner->last_name},
+Hi {$businessOwner->first_name} {$businessOwner->last_name},
 
-This is a courtesy notification from the Business Permit and Licensing Department (BPLD). We kindly request you to visit our office by {$dueDate} regarding an important matter. Please reference receipt number {$violation->violation_receipt_no} when you arrive.
+Kindly visit BPLD by {$dueDate} to settle a business violation. Refer to receipt no. {$violation->violation_receipt_no} and bring Php {$violation->violation_fee}.00 for the compliance fee.
 
-If you have any questions, feel free to contact us directly.
+Feel free to contact us if you have any questions!
 
 Thank you,
-Business Permit and Licensing Department";
+Business Permit and Licensing Department
+";
 
+            // Send SMS notification
             $notificationController = new NotificationController();
-            $response = $notificationController->sendNotification(new Request([
+            $smsResponse = $notificationController->sendNotification(new Request([
                 'phone' => $phoneNumber,
                 'message' => $message
             ]));
 
-            // Log the response for debugging
-            Log::info('Response from sendNotification', [
-                'status' => $response['status'] ?? 'N/A',
-                'message' => $response['message'] ?? 'No message in response',
-            ]);
+            // Send email if email exists
+            if ($businessOwner->email) {
+                try {
+                    Mail::to($businessOwner->email)->send(new \App\Mail\ViolationNotification([
+                        'message' => $message,
+                        'subject' => 'BPLD Violation Notice',
+                        'recipient_name' => $businessOwner->first_name . ' ' . $businessOwner->last_name
+                    ]));
 
-            // Return the response directly - this will be handled by the calling method
-            return $response;
+                    Log::info('Email notification sent successfully', [
+                        'email' => $businessOwner->email,
+                        'violation_id' => $violation->violation_id
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send email notification', [
+                        'error' => $e->getMessage(),
+                        'email' => $businessOwner->email
+                    ]);
+                }
+            }
+
+            // Return the SMS response
+            return $smsResponse;
 
         } catch (\Exception $e) {
-            // Log the error and return an error response
             Log::error('Failed to send violation notification due to an exception', [
                 'error_message' => $e->getMessage(),
                 'stack_trace' => $e->getTraceAsString(),
@@ -265,7 +281,7 @@ Business Permit and Licensing Department";
 
             return [
                 'status' => 500,
-                'message' => 'Failed to send SMS notification due to an internal error.'
+                'message' => 'Failed to send notifications due to an internal error.'
             ];
         }
     }
@@ -274,30 +290,49 @@ Business Permit and Licensing Department";
     {
         try {
             $phoneNumber = $businessOwner->phone_number;
-
-            Log::info('Formatted phone number', ['phone' => $phoneNumber]);
-
-            // Format the due date
             $dueDate = date('F j, Y', strtotime($violation->due_date));
 
-            // Send the notification with the formatted phone number
-            // Send a friendly notification about potential violations
-            $notificationController = new NotificationController();
-            $notificationController->sendNotification(new Request([
-                'phone' => $phoneNumber,
-                'message' => "Subject: Reminder: Visit the BPLD
+            // Prepare the message
+            $message = "Subject: Reminder: Visit BPLD – Almost Due
 
 Dear {$businessOwner->first_name} {$businessOwner->last_name},
 
-This is a friendly reminder from the Business Permit and Licensing Department (BPLD) regarding your pending matter. Kindly visit our office by {$dueDate}, and reference receipt number {$violation->violation_receipt_no} for assistance.
+This is a friendly reminder from the Business Permit and Licensing Department (BPLD). Please visit our office by {$dueDate} to settle your business violation. Refer to receipt no. {$violation->violation_receipt_no} and bring Php {$violation->violation_fee}.00 for the compliance fee.
 
-If you have any questions or require further clarification, please contact us directly.
+If you have any questions or need assistance, feel free to contact us.
 
-Thank you for your prompt attention to this matter.
+Thank you for your prompt attention!
 
 Best regards,
-Business Permit and Licensing Department"
+Business Permit and Licensing Department";
+
+            // Send SMS notification
+            $notificationController = new NotificationController();
+            $smsResponse = $notificationController->sendNotification(new Request([
+                'phone' => $phoneNumber,
+                'message' => $message
             ]));
+
+            // Send email if email exists
+            if ($businessOwner->email) {
+                try {
+                    Mail::to($businessOwner->email)->send(new \App\Mail\ViolationNotification([
+                        'message' => $message,
+                        'subject' => 'BPLD Violation Reminder Notice',
+                        'recipient_name' => $businessOwner->first_name . ' ' . $businessOwner->last_name
+                    ]));
+
+                    Log::info('Reminder email notification sent successfully', [
+                        'email' => $businessOwner->email,
+                        'violation_id' => $violation->violation_id
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send reminder email notification', [
+                        'error' => $e->getMessage(),
+                        'email' => $businessOwner->email
+                    ]);
+                }
+            }
 
             Log::info('Using NotificationController to send SMS', [
                 'business_owner' => $businessOwner->business_owner_id,
@@ -306,9 +341,20 @@ Business Permit and Licensing Department"
                 'violation' => $violation->violation_receipt_no
             ]);
 
-            Log::info('Violation reminder notification sent successfully', ['business_owner' => $businessOwner->email]);
+            return $smsResponse;
+
         } catch (\Exception $e) {
-            Log::error('Failed to send violation reminder notification', ['error' => $e->getMessage()]);
+            Log::error('Failed to send violation reminder notification', [
+                'error' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString(),
+                'business_owner_id' => $businessOwner->business_owner_id,
+                'violation_receipt_no' => $violation->violation_receipt_no
+            ]);
+
+            return [
+                'status' => 500,
+                'message' => 'Failed to send notifications due to an internal error.'
+            ];
         }
     }
 

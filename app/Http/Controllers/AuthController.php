@@ -62,9 +62,9 @@ class AuthController extends Controller
             ]
         );
 
-        // $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
+        $resetLink = url('http://127.0.0.1:5500/pages/auth/changePassword.html') . '?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
 
-        $resetLink = env('FRONTEND_URL') . '/pages/auth/changePassword.html?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
+        // $resetLink = env('FRONTEND_URL') . '/pages/auth/changePassword.html?token=' . $plainToken . '&email=' . urlencode($encryptedEmail);
 
 
         // Prepare the email message
