@@ -232,12 +232,12 @@ class InspectorController extends Controller
 
 Hi {$businessOwner->first_name} {$businessOwner->last_name},
 
-Kindly visit BPLD by {$dueDate} to settle a business violation. Refer to receipt no. {$violation->violation_receipt_no} and bring Php {$violation->violation_fee}.00 for the compliance fee.
+Kindly visit CBPLD by {$dueDate} to settle a business violation. Refer to receipt no. {$violation->violation_receipt_no} and bring Php {$violation->violation_fee}.00 for the compliance fee.
 
 Feel free to contact us if you have any questions!
 
 Thank you,
-Business Permit and Licensing Department
+City Business Permit and Licensing Department
 ";
 
             // Send SMS notification
@@ -297,14 +297,14 @@ Business Permit and Licensing Department
 
 Dear {$businessOwner->first_name} {$businessOwner->last_name},
 
-This is a friendly reminder from the Business Permit and Licensing Department (BPLD). Please visit our office by {$dueDate} to settle your business violation. Refer to receipt no. {$violation->violation_receipt_no} and bring Php {$violation->violation_fee}.00 for the compliance fee.
+This is a friendly reminder from the City Business Permit and Licensing Department (CBPLD). Please visit our office by {$dueDate} to settle your business violation. Refer to receipt no. {$violation->violation_receipt_no} and bring Php {$violation->violation_fee}.00 for the compliance fee.
 
 If you have any questions or need assistance, feel free to contact us.
 
 Thank you for your prompt attention!
 
 Best regards,
-Business Permit and Licensing Department";
+City Business Permit and Licensing Department";
 
             // Send SMS notification
             $notificationController = new NotificationController();

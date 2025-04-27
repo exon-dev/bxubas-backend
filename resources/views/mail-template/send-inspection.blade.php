@@ -25,7 +25,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>BPLD Violation Notice</h2>
+            <h2>CBPLD Violation Notice</h2>
         </div>
         <div class="content">
             {!! nl2br(e($messageContent)) !!}
