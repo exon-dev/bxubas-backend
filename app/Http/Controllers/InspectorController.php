@@ -228,7 +228,7 @@ class InspectorController extends Controller
             $dueDate = Carbon::parse($violation->due_date)->format('F j, Y');
 
             // Prepare the message
-            $message = "Subject: Reminder: Visit BPLD
+            $message = "Subject: Reminder: Visit CBPLD
 
 Hi {$businessOwner->first_name} {$businessOwner->last_name},
 
@@ -293,7 +293,7 @@ City Business Permit and Licensing Department
             $dueDate = date('F j, Y', strtotime($violation->due_date));
 
             // Prepare the message
-            $message = "Subject: Reminder: Visit BPLD – Almost Due
+            $message = "Subject: Reminder: Visit CBPLD – Almost Due
 
 Dear {$businessOwner->first_name} {$businessOwner->last_name},
 
